@@ -167,22 +167,22 @@ REFLEX_EXPORT namespace reflex::cli
     {
       static constexpr auto npos  = std::string_view::npos;
       std::string_view      view  = switches;
-      auto                  slash = view.find('/');
+      auto                  comma = view.find(',');
 
-      if(slash != npos)
+      if(comma != npos)
       {
         if(view[1] == '-')
         {
-          return {view.substr(0, slash), view.substr(slash + 1)};
+          return {view.substr(0, comma), view.substr(comma + 1)};
         }
         else
         {
-          return {view.substr(0, slash), view.substr(slash + 1)};
+          return {view.substr(0, comma), view.substr(comma + 1)};
         }
       }
       else
       {
-        // No slash
+        // No comma
         if(view[1] == '-')
         {
           return {"", view};
@@ -206,7 +206,7 @@ REFLEX_EXPORT namespace reflex::cli
   extern "C++" int install_completion(std::string_view executable, std::string_view shell);
   extern "C++" int emit_completion(std::string_view executable, std::string_view shell);
 
-  [[= option{"--help", "Print this message and exit."}.flag()]] constexpr bool help_option{false};
+  [[= option{"-h,--help", "Print this message and exit."}.flag()]] constexpr bool help_option{false};
 
   [[= option{"--install-completion", "Install shell completion."}
           .flag()]] constexpr bool install_completion_option{false};
@@ -633,7 +633,7 @@ REFLEX_EXPORT namespace reflex::cli
 
     static constexpr std::size_t min_id_size = 16;
 
-    if(auto pos = program.find_last_of("/"); pos != std::string_view::npos)
+    if(auto pos = program.find_last_of(','); pos != std::string_view::npos)
     {
       program.remove_prefix(pos + 1);
     }
@@ -678,7 +678,7 @@ REFLEX_EXPORT namespace reflex::cli
           {
             return std::string{*s};
           }
-          return std::format("{}/{}", *s, *l);
+          return std::format("{}, {}", *s, *l);
         }();
         std::println("  {:{}} {}", switches_str, max_id_size, *opt.help());
       }
