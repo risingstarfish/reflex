@@ -633,7 +633,7 @@ REFLEX_EXPORT namespace reflex::cli
 
     static constexpr std::size_t min_id_size = 16;
 
-    if(auto pos = program.find_last_of(','); pos != std::string_view::npos)
+    if(auto pos = program.find_last_of("/\\"); pos != std::string_view::npos)
     {
       program.remove_prefix(pos + 1);
     }
