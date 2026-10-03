@@ -426,7 +426,7 @@ TEST_CASE("reflex::cli: a hybrid command lists both kinds of sub-command")
   CHECK(err.empty());
   CHECK_EQ(
       out,
-      "USAGE: shapes [OPTIONS...] ARGUMENTS...\n"
+      "USAGE: shapes ARGUMENTS... [OPTIONS...]\n"
       "\n"
       "Shape tool.\n"
       "\n"
@@ -459,18 +459,18 @@ TEST_CASE("reflex::cli: a function command prints its usage")
   CHECK(err.empty());
   CHECK_EQ(
       out,
-      "USAGE: dots [OPTIONS...] ARGUMENTS...\n"
+      "USAGE: dots ARGUMENTS... [OPTIONS...]\n"
       "\n"
       "Print a line of dots.\n"
+      "\n"
+      "ARGUMENTS:\n"
+      "  count            How many dots.\n"
       "\n"
       "OPTIONS:\n"
       "  --help               Print this message and exit.\n"
       "  --install-completion Install shell completion.\n"
       "  --show-completion    Show shell completion.\n"
       "  -r/--repeat          Repeat the line.\n"
-      "\n"
-      "ARGUMENTS:\n"
-      "  count            How many dots.\n"
       "\n"
       "\n");
 }
