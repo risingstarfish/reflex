@@ -69,7 +69,7 @@ namespace impl {
 
     // This is the singular (private) object that will be used for reflect_constant_array
     template <class T, std::meta::info... Is>
-    inline constexpr target<T> the_array[] = {[:Is:]...};
+    inline constexpr target<T> the_array[sizeof...(Is)] = {[:Is:]...};
 
     // The default/simple approach to serialization, using Serializer
     template <class T>

@@ -28,7 +28,16 @@ REFLEX_EXPORT namespace reflex::ctp {
         using target_type = std::span<target<T const> const>;
 
         static consteval auto serialize(serializer& s, std::vector<T> const& v) -> void {
-            s.push(reflect_constant_array(v));
+            if (v.empty()) {
+                // An empty range would substitute the_array to a zero-length array
+                // (target<T>[0]), which std::meta::can_substitute rejects, throwing
+                // "can_substitute returned false". Push a non-array marker instead;
+                // deserialize maps it back to an empty span.
+                s.push(std::meta::reflect_constant(0uz));
+            }
+            else {
+                s.push(reflect_constant_array(v));
+            }
         }
 
         static consteval auto deserialize(std::meta::info r) -> target_type {
