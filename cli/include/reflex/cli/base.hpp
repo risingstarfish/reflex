@@ -932,6 +932,11 @@ REFLEX_EXPORT namespace reflex::cli
     std::string_view command{};
     std::string_view program{};
     parsing_state    state = parsing_state::completed;
+    // Names of the positional arguments left unfilled, comma-separated, when
+    // the state is missing_argument. The parser finds them after the token
+    // loop, where current.view no longer names anything useful, so they are
+    // carried her.
+    std::string missing_arguments{};
     std::size_t      index = 1;
 
     void usage() const
@@ -1314,11 +1319,19 @@ REFLEX_EXPORT namespace reflex::cli
           }
           else
           {
-            trackers.state = parsing_state::missing_argument;
-            state_handler(trackers);
-            return 1;
+            if(not trackers.missing_arguments.empty())
+            {
+              trackers.missing_arguments += ", ";
+            }
+            trackers.missing_arguments += arg.display_name();
           }
         }
+      }
+      if(not trackers.missing_arguments.empty())
+      {
+        trackers.state = parsing_state::missing_argument;
+        state_handler(trackers);
+        return 1;
       }
     }
 
