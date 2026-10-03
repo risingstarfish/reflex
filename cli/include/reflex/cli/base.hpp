@@ -638,12 +638,28 @@ REFLEX_EXPORT namespace reflex::cli
       program.remove_prefix(pos + 1);
     }
 
-    std::println("USAGE: {} [OPTIONS...] ARGUMENTS...", program);
+    std::println("USAGE: {} ARGUMENTS... [OPTIONS...]", program);
 
     if constexpr(constexpr auto help = description.help; not help->empty())
     {
       std::println();
       std::println("{}", *help);
+      std::println();
+    }
+
+    if constexpr(not args.empty())
+    {
+      std::println("ARGUMENTS:");
+      std::size_t max_id_size = min_id_size;
+      template for(constexpr auto a : args)
+      {
+        max_id_size = std::max(max_id_size, a.display_name().size());
+      }
+      template for(constexpr auto a : args)
+      {
+        std::println("  {:{}} {}", a.display_name(), max_id_size, *a.help());
+      }
+
       std::println();
     }
 
@@ -681,22 +697,6 @@ REFLEX_EXPORT namespace reflex::cli
           return std::format("{}, {}", *s, *l);
         }();
         std::println("  {:{}} {}", switches_str, max_id_size, *opt.help());
-      }
-
-      std::println();
-    }
-
-    if constexpr(not args.empty())
-    {
-      std::println("ARGUMENTS:");
-      std::size_t max_id_size = min_id_size;
-      template for(constexpr auto a : args)
-      {
-        max_id_size = std::max(max_id_size, a.display_name().size());
-      }
-      template for(constexpr auto a : args)
-      {
-        std::println("  {:{}} {}", a.display_name(), max_id_size, *a.help());
       }
 
       std::println();
