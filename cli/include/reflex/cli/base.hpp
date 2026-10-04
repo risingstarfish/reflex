@@ -123,15 +123,10 @@ REFLEX_EXPORT namespace reflex::cli
     std::meta::info completion_vector = ^^std::vector<completion_item<std::string, std::string>>;
   };
 
-  struct version_config
-  {
-    bool             enabled     = true;
-    std::string_view version_str = {};
-  };
-
   struct configuration
   {
-    completion_config completion{};
+    completion_config       completion{};
+    reflex::constant_string version = "";
   };
 
   template <configuration config = {}>
@@ -204,7 +199,6 @@ REFLEX_EXPORT namespace reflex::cli
   struct command
   {
     reflex::constant_string help = "";
-    // reflex::constant_string version = "";
   };
 
   namespace detail
@@ -214,8 +208,10 @@ REFLEX_EXPORT namespace reflex::cli
   extern "C++" int emit_completion(std::string_view executable, std::string_view shell);
 
   [[= option{"--help", "Print this message and exit."}.flag()]] constexpr bool help_option{false};
-  // [[= option{"--version", "Print the version and exit."}.flag()]]constexpr bool
-  // version_option{false}; TODO: enable if user has
+
+  [[= option{"--version", "Print the version and exit."}.flag()]] constexpr bool version_option{
+      false};
+
   [[= option{"--install-completion", "Install shell completion."}
           .flag()]] constexpr bool install_completion_option{false};
 
@@ -517,17 +513,18 @@ REFLEX_EXPORT namespace reflex::cli
     return command_annotation_of(I);
   }
 
-  template <std::meta::info I, bool include_install_completion = true> constexpr auto raw_parse()
+  template <std::meta::info I, bool include_version = true, bool include_install_completion = true>
+  constexpr auto raw_parse()
   {
     std::vector<std::meta::info> arguments;
     std::vector<std::meta::info> options;
     std::vector<std::meta::info> sub_commands;
 
     options.push_back(^^help_option);
-    // TODO:
-    // if constexpr(include_version) {
-    //   options.push_back(^^version_option);
-    // }
+    if constexpr(include_version)
+    {
+      options.push_back(^^version_option);
+    }
     if constexpr(include_install_completion)
     {
       options.push_back(^^install_completion_option);
@@ -624,10 +621,11 @@ REFLEX_EXPORT namespace reflex::cli
         define_static_array(sub_commands)};
   }
 
-  template <std::meta::info I, bool include_install_completion = true> constexpr auto parse()
+  template <std::meta::info I, bool include_version = true, bool include_install_completion = true>
+  constexpr auto parse()
   {
     static constexpr auto [arguments, options, sub_commands] =
-        raw_parse<I, include_install_completion>();
+        raw_parse<I, include_version, include_install_completion>();
     static constexpr auto args   = argument_info::from_info_range(arguments);
     static constexpr auto opts   = option_info::from_info_range(options);
     static constexpr auto s_cmds = command_info::from_info_range(sub_commands);
@@ -639,13 +637,14 @@ REFLEX_EXPORT namespace reflex::cli
     return constant_string{caseconv::to_kebab_case(identifier_of(mem))};
   }
 
-  template <std::meta::info I, bool include_install_completion = true>
+  template <std::meta::info I, bool include_version = true, bool include_install_completion = true>
   void usage_of(std::string_view program)
   {
-    static constexpr auto description          = command_annotation_for(I);
-    static constexpr auto [args, opts, s_cmds] = parse<I, include_install_completion>();
+    static constexpr auto description = command_annotation_for(I);
+    static constexpr auto [args, opts, s_cmds] =
+        parse<I, include_version, include_install_completion>();
 
-    static constexpr std::size_t min_id_size = 20;
+    static constexpr std::size_t min_id_size = 16;
 
     if(auto pos = program.find_last_of("/\\"); pos != std::string_view::npos)
     {
@@ -731,6 +730,11 @@ REFLEX_EXPORT namespace reflex::cli
     }
 
     std::println();
+  }
+
+  template <reflex::constant_string Version> void version_of(std::string_view program)
+  {
+    std::println("{} {}", program, Version);
   }
 
   enum class parsing_state
@@ -884,13 +888,16 @@ REFLEX_EXPORT namespace reflex::cli
 
   template <
       typename Cmd,
-      bool include_install_completion = true,
-      typename Invoker                = decltype(default_invoker)>
+      reflex::constant_string Version                    = "",
+      bool                    include_install_completion = true,
+      typename Invoker                                   = decltype(default_invoker)>
   struct parse_trackers
   {
+    static constexpr auto include_version = !Version->empty();
+
     static constexpr auto cmd_type = remove_cvref(^^Cmd);
 
-    static constexpr auto _raw = raw_parse<cmd_type, include_install_completion>();
+    static constexpr auto _raw = raw_parse<cmd_type, include_version, include_install_completion>();
 
     static constexpr constant<std::vector<argument_info>> args =
         argument_info::from_info_range(std::get<0>(_raw)) | std::ranges::to<std::vector>();
@@ -953,7 +960,7 @@ REFLEX_EXPORT namespace reflex::cli
 
     void usage() const
     {
-      usage_of<cmd_type, include_install_completion>(command);
+      usage_of<cmd_type, include_version, include_install_completion>(command);
     }
   };
 
@@ -999,8 +1006,9 @@ REFLEX_EXPORT namespace reflex::cli
   };
 
   template <
-      bool                               show_help                  = true,
-      /*bool show_version = true,*/ bool include_install_completion = true,
+      bool                    show_help                  = true,
+      reflex::constant_string Version                    = "",
+      bool                    include_install_completion = true,
       typename Cli,
       typename Invoker = decltype(default_invoker)>
   int process_cmdline(
@@ -1013,8 +1021,9 @@ REFLEX_EXPORT namespace reflex::cli
       std::size_t      index   = 1,
       Invoker          invoker = default_invoker)
   {
-    static constexpr auto                                    cli_type = remove_cvref(^^Cli);
-    parse_trackers<Cli, include_install_completion, Invoker> trackers{cli, invoker};
+    static constexpr auto include_version = !Version->empty();
+    static constexpr auto cli_type        = remove_cvref(^^Cli);
+    parse_trackers<Cli, Version, include_install_completion, Invoker> trackers{cli, invoker};
     trackers.command = command;
     trackers.program = executable.empty() ? command : executable;
     trackers.index   = index;
@@ -1055,20 +1064,18 @@ REFLEX_EXPORT namespace reflex::cli
             {
               if(show_help)
               {
-                usage_of<cli_type, include_install_completion>(trackers.program);
+                usage_of<cli_type, include_version, include_install_completion>(trackers.program);
               }
               return 0;
             }
-            /*
-            if constexpr(o == ^^version_option)
+            else if constexpr(o == ^^version_option)
             {
-              if(show_version)
+              if(include_version)
               {
-                version_of(trackers.program);
+                version_of<Version>(trackers.program);
               }
               return 0;
             }
-            */
             else if constexpr(o == ^^install_completion_option)
             {
               std::string_view shell{};
@@ -1244,13 +1251,13 @@ REFLEX_EXPORT namespace reflex::cli
               // The parameters are the sub-command, so they get an aggregate of
               // their own and the parent is carried to the call by the invoker.
               command_args<cmd.member> sub_args{};
-              return process_cmdline<show_help, /*show_version,*/ false>(
+              return process_cmdline<show_help, Version, false>(
                   sub_args, sub_command, trackers.program, it, end, state_handler, trackers.index,
                   member_invoker<cmd.member>(cli));
             }
             else
             {
-              return process_cmdline<show_help, /*show_version,*/ false>(
+              return process_cmdline<show_help, Version, false>(
                   cli.[:cmd.member:], sub_command, trackers.program, it, end, state_handler,
                                     trackers.index);
             }

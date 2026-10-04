@@ -28,7 +28,7 @@ REFLEX_EXPORT namespace reflex::cli
       Invoker          invoker = detail::default_invoker)
   {
     auto command = std::filesystem::path{executable}.filename().string();
-    return detail::process_cmdline</*show_help*/ true, config.completion.enabled>(
+    return detail::process_cmdline</*show_help*/ true, config.version, config.completion.enabled>(
         std::forward<Cli>(cli), command, executable, it, end,
         [](auto const& trackers) {
           const auto state = trackers.state;
