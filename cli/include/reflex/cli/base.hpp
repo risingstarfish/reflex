@@ -734,6 +734,10 @@ REFLEX_EXPORT namespace reflex::cli
 
   template <reflex::constant_string Version> void version_of(std::string_view program)
   {
+    if(auto pos = program.find_last_of("/\\"); pos != std::string_view::npos)
+    {
+      program.remove_prefix(pos + 1);
+    }
     std::println("{} {}", program, Version);
   }
 
