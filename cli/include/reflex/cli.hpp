@@ -16,14 +16,21 @@ REFLEX_EXPORT namespace reflex::cli
 {
   namespace detail
   {
-  template <typename Cli, typename Invoker = decltype(detail::default_invoker)>
+  template <
+      configuration config = {},
+      typename Cli,
+      typename Invoker = decltype(detail::default_invoker)>
   int process(
-      Cli&& cli, std::string_view executable, auto it, auto end,
-      Invoker invoker = detail::default_invoker)
+      Cli&&            cli,
+      std::string_view executable,
+      auto             it,
+      auto             end,
+      Invoker          invoker = detail::default_invoker)
   {
     auto command = std::filesystem::path{executable}.filename().string();
-    return detail::process_cmdline(
-        std::forward<Cli>(cli), command, executable, it, end, [](auto const& trackers) {
+    return detail::process_cmdline</*show_help*/ true, config.completion.enabled>(
+        std::forward<Cli>(cli), command, executable, it, end,
+        [](auto const& trackers) {
           const auto state = trackers.state;
           const auto view  = trackers.current.view;
 
@@ -43,8 +50,7 @@ REFLEX_EXPORT namespace reflex::cli
           {
             std::println(
                 std::cerr, "missing required argument{}: {}",
-                trackers.missing_arguments.contains(", ") ? "s" : "",
-                trackers.missing_arguments);
+                trackers.missing_arguments.contains(", ") ? "s" : "", trackers.missing_arguments);
             std::println(std::cerr);
           }
           else if(state == parsing_state::missing_option_value)
@@ -56,7 +62,8 @@ REFLEX_EXPORT namespace reflex::cli
           {
             std::println(
                 std::cerr, "invalid value for option {}: {} ({})", view,
-                trackers.current.value_view, std::generic_category().message(int(trackers.current.parse_error)));
+                trackers.current.value_view,
+                std::generic_category().message(int(trackers.current.parse_error)));
             std::println(std::cerr);
           }
           else if(state == parsing_state::invalid_argument_value)
@@ -99,7 +106,8 @@ REFLEX_EXPORT namespace reflex::cli
           }
           trackers.usage();
           return 1;
-        }, 1, invoker);
+        },
+        1, invoker);
   }
 
   /** @brief answer the shell instead of running the command
@@ -174,7 +182,7 @@ REFLEX_EXPORT namespace reflex::cli
       return *rc;
     }
 
-    return detail::process(args, executable, it, end, detail::function_invoker<Fn>);
+    return detail::process<config>(args, executable, it, end, detail::function_invoker<Fn>);
   }
 
   template <std::meta::info Fn, configuration config = {}> int run(int argc, const char** argv)
