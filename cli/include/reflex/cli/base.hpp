@@ -206,8 +206,8 @@ REFLEX_EXPORT namespace reflex::cli
   extern "C++" int install_completion(std::string_view executable, std::string_view shell);
   extern "C++" int emit_completion(std::string_view executable, std::string_view shell);
 
-  [[= option{"-h,--help", "Print this message and exit."}.flag()]] constexpr bool help_option{false};
-
+  [[= option{"--help", "Print this message and exit."}.flag()]] constexpr bool help_option{false};
+  // [[= option{"--version", "Print the version and exit."}.flag()]]constexpr bool version_option{false}; TODO: enable if user has
   [[= option{"--install-completion", "Install shell completion."}
           .flag()]] constexpr bool install_completion_option{false};
 
@@ -514,6 +514,10 @@ REFLEX_EXPORT namespace reflex::cli
     std::vector<std::meta::info> sub_commands;
 
     options.push_back(^^help_option);
+    // TODO: 
+    // if constexpr(include_version) {
+    //   options.push_back(^^version_option);
+    // }
     if constexpr(include_install_completion)
     {
       options.push_back(^^install_completion_option);
@@ -987,7 +991,7 @@ REFLEX_EXPORT namespace reflex::cli
   };
 
   template <
-      bool show_help = true, bool include_install_completion = true, typename Cli,
+      bool show_help = true, /*bool show_version = true,*/bool include_install_completion = true, typename Cli,
       typename Invoker = decltype(default_invoker)>
   int process_cmdline(
       Cli&&            cli,
@@ -1045,6 +1049,16 @@ REFLEX_EXPORT namespace reflex::cli
               }
               return 0;
             }
+            /*
+            if constexpr(o == ^^version_option)
+            {
+              if(show_version)
+              {
+                version_of(trackers.program);
+              }
+              return 0;
+            }
+            */
             else if constexpr(o == ^^install_completion_option)
             {
               std::string_view shell{};
@@ -1163,7 +1177,7 @@ REFLEX_EXPORT namespace reflex::cli
         {
           // In completion mode, a bare '-' is an option probe and should list
           // available switches instead of being consumed as a positional string.
-          if constexpr(not show_help)
+          if constexpr(not show_help/*and not show_version*/)
           {
             if(trackers.current.view == "-")
             {
@@ -1220,13 +1234,13 @@ REFLEX_EXPORT namespace reflex::cli
               // The parameters are the sub-command, so they get an aggregate of
               // their own and the parent is carried to the call by the invoker.
               command_args<cmd.member> sub_args{};
-              return process_cmdline<show_help, false>(
+              return process_cmdline<show_help, /*show_version,*/false>(
                   sub_args, sub_command, trackers.program, it, end, state_handler, trackers.index,
                   member_invoker<cmd.member>(cli));
             }
             else
             {
-              return process_cmdline<show_help, false>(
+              return process_cmdline<show_help, /*show_version,*/false>(
                   cli.[:cmd.member:], sub_command, trackers.program, it, end, state_handler,
                   trackers.index);
             }
