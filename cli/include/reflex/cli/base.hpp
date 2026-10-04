@@ -123,6 +123,12 @@ REFLEX_EXPORT namespace reflex::cli
     std::meta::info completion_vector = ^^std::vector<completion_item<std::string, std::string>>;
   };
 
+  struct version_config
+  {
+    bool             enabled     = true;
+    std::string_view version_str = {};
+  };
+
   struct configuration
   {
     completion_config completion{};
@@ -197,7 +203,8 @@ REFLEX_EXPORT namespace reflex::cli
 
   struct command
   {
-    reflex::constant_string help = "";
+    reflex::constant_string help    = "";
+    reflex::constant_string version = "";
   };
 
   namespace detail
@@ -207,7 +214,8 @@ REFLEX_EXPORT namespace reflex::cli
   extern "C++" int emit_completion(std::string_view executable, std::string_view shell);
 
   [[= option{"--help", "Print this message and exit."}.flag()]] constexpr bool help_option{false};
-  // [[= option{"--version", "Print the version and exit."}.flag()]]constexpr bool version_option{false}; TODO: enable if user has
+  // [[= option{"--version", "Print the version and exit."}.flag()]]constexpr bool
+  // version_option{false}; TODO: enable if user has
   [[= option{"--install-completion", "Install shell completion."}
           .flag()]] constexpr bool install_completion_option{false};
 
@@ -322,7 +330,9 @@ REFLEX_EXPORT namespace reflex::cli
    * available in a constant expression under libstdc++.
    */
   consteval void refuse_command(
-      std::string_view command, std::string_view subject, std::string_view reason,
+      std::string_view     command,
+      std::string_view     subject,
+      std::string_view     reason,
       std::source_location loc)
   {
     std::string message{command};
@@ -354,8 +364,7 @@ REFLEX_EXPORT namespace reflex::cli
       // from.
       refuse_command(
           std::meta::identifier_of(R), "names",
-          "nothing callable with parameter types a command line could fill",
-          source_location_of(R));
+          "nothing callable with parameter types a command line could fill", source_location_of(R));
     }
 
     // A type is named without an object, so the command has to make one.
@@ -363,8 +372,7 @@ REFLEX_EXPORT namespace reflex::cli
     {
       refuse_command(
           std::meta::identifier_of(R), "names",
-          "a type the command cannot build, name an object of it instead",
-          source_location_of(R));
+          "a type the command cannot build, name an object of it instead", source_location_of(R));
     }
     return call;
   }
@@ -377,8 +385,8 @@ REFLEX_EXPORT namespace reflex::cli
    *
    * Every function command goes through here, so the refusals live here too.
    */
-  template <std::meta::info Command> consteval auto command_member_specs()
-      -> std::vector<std::meta::info>
+  template <std::meta::info Command>
+  consteval auto command_member_specs() -> std::vector<std::meta::info>
   {
     const auto Fn          = command_function_of(Command);
     const auto name        = std::meta::identifier_of(Command);
@@ -433,9 +441,8 @@ REFLEX_EXPORT namespace reflex::cli
       // A sub-command is descended into and called. A function parameter is not
       // something to descend into, so both the annotated form and the implicit
       // one are refused instead of becoming an unreachable sub-command.
-      bool is_sub_command = annotations.empty()
-                        and is_class_type(type)
-                        and meta::has_annotation(type, ^^command);
+      bool is_sub_command =
+          annotations.empty() and is_class_type(type) and meta::has_annotation(type, ^^command);
       for(auto a : annotations)
       {
         is_sub_command |= decay(type_of(constant_of(a))) == ^^command;
@@ -484,7 +491,10 @@ REFLEX_EXPORT namespace reflex::cli
     static constexpr auto function = Fn;
 
     struct args;
-    consteval { std::meta::define_aggregate(^^args, command_member_specs<Fn>()); }
+    consteval
+    {
+      std::meta::define_aggregate(^^args, command_member_specs<Fn>());
+    }
   };
 
   /** @brief the aggregate @p Fn is parsed into, one member per parameter */
@@ -514,7 +524,7 @@ REFLEX_EXPORT namespace reflex::cli
     std::vector<std::meta::info> sub_commands;
 
     options.push_back(^^help_option);
-    // TODO: 
+    // TODO:
     // if constexpr(include_version) {
     //   options.push_back(^^version_option);
     // }
@@ -870,13 +880,12 @@ REFLEX_EXPORT namespace reflex::cli
    */
   inline constexpr auto default_invoker = []<typename C>(C& cli) -> decltype(auto)
     requires requires { cli(); }
-  {
-    return cli();
-  };
+  { return cli(); };
 
   template <
-      typename Cmd, bool include_install_completion = true,
-      typename Invoker = decltype(default_invoker)>
+      typename Cmd,
+      bool include_install_completion = true,
+      typename Invoker                = decltype(default_invoker)>
   struct parse_trackers
   {
     static constexpr auto cmd_type = remove_cvref(^^Cmd);
@@ -903,8 +912,7 @@ REFLEX_EXPORT namespace reflex::cli
     // caller can test for. A non-template member has its declaration
     // instantiated with the class, which would make it a hard error instead.
     template <typename Self = Cmd>
-    constexpr auto invoke() const
-        -> decltype(std::declval<Invoker const&>()(std::declval<Self&>()))
+    constexpr auto invoke() const -> decltype(std::declval<Invoker const&>()(std::declval<Self&>()))
     {
       return invoker(root);
     }
@@ -941,7 +949,7 @@ REFLEX_EXPORT namespace reflex::cli
     // loop, where current.view no longer names anything useful, so they are
     // carried her.
     std::string missing_arguments{};
-    std::size_t      index = 1;
+    std::size_t index = 1;
 
     void usage() const
     {
@@ -991,7 +999,9 @@ REFLEX_EXPORT namespace reflex::cli
   };
 
   template <
-      bool show_help = true, /*bool show_version = true,*/bool include_install_completion = true, typename Cli,
+      bool                               show_help                  = true,
+      /*bool show_version = true,*/ bool include_install_completion = true,
+      typename Cli,
       typename Invoker = decltype(default_invoker)>
   int process_cmdline(
       Cli&&            cli,
@@ -1177,7 +1187,7 @@ REFLEX_EXPORT namespace reflex::cli
         {
           // In completion mode, a bare '-' is an option probe and should list
           // available switches instead of being consumed as a positional string.
-          if constexpr(not show_help/*and not show_version*/)
+          if constexpr(not show_help /*and not show_version*/)
           {
             if(trackers.current.view == "-")
             {
@@ -1234,15 +1244,15 @@ REFLEX_EXPORT namespace reflex::cli
               // The parameters are the sub-command, so they get an aggregate of
               // their own and the parent is carried to the call by the invoker.
               command_args<cmd.member> sub_args{};
-              return process_cmdline<show_help, /*show_version,*/false>(
+              return process_cmdline<show_help, /*show_version,*/ false>(
                   sub_args, sub_command, trackers.program, it, end, state_handler, trackers.index,
                   member_invoker<cmd.member>(cli));
             }
             else
             {
-              return process_cmdline<show_help, /*show_version,*/false>(
+              return process_cmdline<show_help, /*show_version,*/ false>(
                   cli.[:cmd.member:], sub_command, trackers.program, it, end, state_handler,
-                  trackers.index);
+                                    trackers.index);
             }
           }
         }
