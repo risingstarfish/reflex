@@ -203,8 +203,8 @@ REFLEX_EXPORT namespace reflex::cli
 
   struct command
   {
-    reflex::constant_string help    = "";
-    reflex::constant_string version = "";
+    reflex::constant_string help = "";
+    // reflex::constant_string version = "";
   };
 
   namespace detail
