@@ -39,11 +39,11 @@ using namespace reflex;
 
 struct [[= cli::command{"Git-like tool."}]] git
 {
-  [[= cli::option{"-v/--verbose", "Verbosity."}.counter()]] int verbose = 0;
+  [[= cli::option{"-v,--verbose", "Verbosity."}.counter()]] int verbose = 0;
 
   struct [[= cli::command{"Push changes."}]]
   {
-    [[= cli::option{"-r/--remote", "Remote name."}]] std::string remote = "origin";
+    [[= cli::option{"-r,--remote", "Remote name."}]] std::string remote = "origin";
 
     int operator()() const { std::println("pushing to {}", remote); return 0; }
   } push;
@@ -89,10 +89,10 @@ nested struct.
 ```cpp
 struct [[= cli::command{"Git-like tool."}]] git
 {
-  [[= cli::option{"-v/--verbose", "Verbosity."}.counter()]] int verbose = 0;
+  [[= cli::option{"-v,--verbose", "Verbosity."}.counter()]] int verbose = 0;
 
   [[= cli::command{"Push changes."}]]
-  int push([[= cli::option{"-r/--remote", "Remote name."}]] std::string remote)
+  int push([[= cli::option{"-r,--remote", "Remote name."}]] std::string remote)
   {
     std::println("pushing to {} (verbose={})", remote, verbose);
     return 0;

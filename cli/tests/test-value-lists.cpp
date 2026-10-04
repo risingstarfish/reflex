@@ -16,7 +16,7 @@ std::vector<int> collected_options{};
 
 struct[[= cli::command{"An option that parses and repeats."}]] numbers
 {
-  [[= cli::option{"-n/--number", "A number, repeatable."}]] //
+  [[= cli::option{"-n,--number", "A number, repeatable."}]] //
   std::vector<int> values{};
 
   int operator()() const

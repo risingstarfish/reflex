@@ -84,15 +84,15 @@ auto output_format_completer(std::string_view current)
 
 struct[[= cli::command("Convert file formats")]] convert_command
 {
-  [[= cli::option{"-v/--verbose", "Increase verbosity level"}.counter()]] int verbose = 0;
+  [[= cli::option{"-v,--verbose", "Increase verbosity level"}.counter()]] int verbose = 0;
 
   [[
-    = cli::option("-if/--input-format", "Force input format."),
+    = cli::option("-if,--input-format", "Force input format."),
     = cli::complete{^^input_format_completer}
   ]] std::string input_format{};
 
   [[
-    = cli::option("-of/--output-format", "Force output format."),
+    = cli::option("-of,--output-format", "Force output format."),
     = cli::complete{^^output_format_completer}
   ]] std::string output_format{};
 

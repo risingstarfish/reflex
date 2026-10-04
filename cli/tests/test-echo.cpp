@@ -8,8 +8,8 @@ using namespace reflex;
 struct[[= cli::command{"Simple echo command."}]] echo
 {
   [[= cli::argument{"Message to print."}]] std::string            message;
-  [[= cli::option{"-p/--prefix", "Prefix."}]] std::string         prefix;
-  [[= cli::option{"-r/--repeat", "Repeat count."}.counter()]] int repeat = 1;
+  [[= cli::option{"-p,--prefix", "Prefix."}]] std::string         prefix;
+  [[= cli::option{"-r,--repeat", "Repeat count."}.counter()]] int repeat = 1;
 
   int operator()() const
   {

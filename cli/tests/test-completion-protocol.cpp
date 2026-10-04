@@ -91,7 +91,7 @@ struct[[= cli::command{"Every builtin completer, one per sub-command."}]] comple
     [[= cli::argument{"A word."}, = cli::complete{^^partial_completer}]] //
     std::string word = "";
 
-    [[= cli::option{"-w/--width", "A number."}]] //
+    [[= cli::option{"-w,--width", "A number."}]] //
     int width = 0;
 
     int operator()() const

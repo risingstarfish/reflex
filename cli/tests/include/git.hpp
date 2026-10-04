@@ -36,7 +36,7 @@ auto remote_name_completer(std::string_view current)
 
 struct[[= cli::command{"Git-like command with subcommands."}]] git
 {
-  [[= cli::option{"-v/--verbose", "Increase verbosity level"}.counter()]] int verbose = 1;
+  [[= cli::option{"-v,--verbose", "Increase verbosity level"}.counter()]] int verbose = 1;
 
   struct[[= cli::command{"Commit changes."}]]
   {
@@ -55,9 +55,9 @@ struct[[= cli::command{"Git-like command with subcommands."}]] git
   {
     git& up;
 
-    [[= cli::option{"-y/--yes", "Skip confirmation prompt."}.flag()]] bool yes = false;
+    [[= cli::option{"-y,--yes", "Skip confirmation prompt."}.flag()]] bool yes = false;
 
-    [[= cli::option{"-r/--remote", "Remote name."},
+    [[= cli::option{"-r,--remote", "Remote name."},
       = cli::complete{^^remote_name_completer}]] std::string remote = "origin";
 
     int operator()() const
@@ -74,9 +74,9 @@ struct[[= cli::command{"Git-like command with subcommands."}]] git
     [[= cli::argument{"Branch name."}, = cli::complete{^^branch_name_completer}]] //
         std::string name = "";
 
-    [[= cli::option{"-d/--delete", "Delete the branch."}.flag()]] bool del = false;
+    [[= cli::option{"-d,--delete", "Delete the branch."}.flag()]] bool del = false;
 
-    [[= cli::option{"-m/--move", "Rename the branch."}.flag()]] bool move = false;
+    [[= cli::option{"-m,--move", "Rename the branch."}.flag()]] bool move = false;
 
     int operator()() const
     {

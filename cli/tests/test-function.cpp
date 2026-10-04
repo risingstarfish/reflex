@@ -5,10 +5,9 @@
 
 using namespace reflex;
 
-[[= cli::command{"Print a line of dots."}]]
-int dots(
+[[= cli::command{"Print a line of dots."}]] int dots(
     [[= cli::argument{"How many dots."}]] int                count,
-    [[= cli::option{"-r/--repeat", "Repeat the line."}]] int repeat)
+    [[= cli::option{"-r,--repeat", "Repeat the line."}]] int repeat)
 {
   for(auto _ : std::views::iota(0, std::max(repeat, 1)))
   {
@@ -24,8 +23,8 @@ int dots(
 // Same parameter names and types as dots: two commands whose members are
 // indistinguishable are what a per-function aggregate has to keep apart.
 int dashes(
-    [[= cli::argument{"How many dashes."}]] int                count,
-    [[= cli::option{"-r/--repeat", "Repeat the line."}]] int   repeat)
+    [[= cli::argument{"How many dashes."}]] int              count,
+    [[= cli::option{"-r,--repeat", "Repeat the line."}]] int repeat)
 {
   for(auto _ : std::views::iota(0, std::max(repeat, 1)))
   {
@@ -47,7 +46,7 @@ int maybe([[= cli::argument{"Optional value."}]] std::optional<int> value)
   return 0;
 }
 
-int only_options([[= cli::option{"-n/--name", "A name."}]] std::string name)
+int only_options([[= cli::option{"-n,--name", "A name."}]] std::string name)
 {
   return int(name.size());
 }
@@ -55,16 +54,16 @@ int only_options([[= cli::option{"-n/--name", "A name."}]] std::string name)
 TEST_CASE("reflex::cli: a function's parameters describe a command")
 {
   static constexpr auto raw = cli::detail::raw_parse<^^cli::detail::command_args<^^dots>>();
-  // one argument, and the declared option on top of the three built-in ones
+  // one argument, and the declared option on top of the four built-in ones
   static_assert(std::get<0>(raw).size() == 1);
-  static_assert(std::get<1>(raw).size() == 4);
+  static_assert(std::get<1>(raw).size() == 5);
   static_assert(std::get<2>(raw).empty());
 
   static constexpr auto arg = cli::detail::argument_info{std::get<0>(raw)[0]};
   static_assert(arg.name() == "count");
   static_assert(*arg.help() == "How many dots.");
 
-  static constexpr auto opt = cli::detail::option_info{std::get<1>(raw)[3]};
+  static constexpr auto opt = cli::detail::option_info{std::get<1>(raw)[4]};
   static_assert(opt.name() == "repeat");
   static_assert(*opt.help() == "Repeat the line.");
   static_assert(*opt.switches.s == "-r");
@@ -90,7 +89,7 @@ TEST_CASE("reflex::cli: a function without parameters describes an empty command
 {
   static constexpr auto raw = cli::detail::raw_parse<^^cli::detail::command_args<^^nothing>>();
   static_assert(std::get<0>(raw).empty());
-  static_assert(std::get<1>(raw).size() == 3);
+  static_assert(std::get<1>(raw).size() == 4);
   static_assert(std::get<2>(raw).empty());
 }
 
@@ -106,7 +105,7 @@ TEST_CASE("reflex::cli: a function may declare options only")
 {
   static constexpr auto raw = cli::detail::raw_parse<^^cli::detail::command_args<^^only_options>>();
   static_assert(std::get<0>(raw).empty());
-  static_assert(std::get<1>(raw).size() == 4);
+  static_assert(std::get<1>(raw).size() == 5);
 }
 
 TEST_CASE("reflex::cli: a synthesized member is a real member")
@@ -271,19 +270,19 @@ TEST_CASE("reflex::cli: a command with no way to run reports it")
   CHECK_NE(err.find("no command to execute"), std::string::npos);
 }
 
-[[= cli::command{"Print a line of stars."}]]
-constexpr auto stars = []([[= cli::argument{"How many stars."}]] int count) {
-  for(auto _ : std::views::iota(0, count))
-  {
-    std::print("*");
-  }
-  std::println();
-  return 0;
-};
+[[= cli::command{"Print a line of stars."}]] constexpr auto stars =
+    []([[= cli::argument{"How many stars."}]] int count) {
+      for(auto _ : std::views::iota(0, count))
+      {
+        std::print("*");
+      }
+      std::println();
+      return 0;
+    };
 
 // The state a capturing lambda holds lives in the variable the user names, and
 // the invoke splices that variable, so it reaches the call unchanged.
-int hidden = 4;
+int  hidden = 4;
 auto scaled = [factor = 3]([[= cli::argument{"A number."}]] int n) {
   std::println("{}", n * factor + hidden);
   return 0;
@@ -342,10 +341,10 @@ TEST_CASE("reflex::cli: a callable runs as a command")
 // get the same thing.
 struct[[= cli::command{"Shape tool."}]] shapes
 {
-  [[= cli::option{"-w/--width", "How wide."}]] int width = 1;
+  [[= cli::option{"-w,--width", "How wide."}]] int width = 1;
 
-  [[= cli::command{"Draw a row of dots."}]]
-  int row([[= cli::argument{"Which character."}]] std::string glyph)
+  [[= cli::command{"Draw a row of dots."}]] int
+      row([[= cli::argument{"Which character."}]] std::string glyph)
   {
     for(auto _ : std::views::iota(0, width))
     {
@@ -355,8 +354,7 @@ struct[[= cli::command{"Shape tool."}]] shapes
     return 0;
   }
 
-  [[= cli::command{"Report the width."}]]
-  void report() const
+  [[= cli::command{"Report the width."}]] void report() const
   {
     std::println("width={}", width);
   }
@@ -378,8 +376,8 @@ TEST_CASE("reflex::cli: a member function is a sub-command")
 {
   SUBCASE("it runs")
   {
-    const auto [out, err] =
-        testutils::capture_out_err([] { CHECK_EQ(cli::run(shapes{}, {"shapes"sv, "row"sv, "x"sv}), 0); });
+    const auto [out, err] = testutils::capture_out_err(
+        [] { CHECK_EQ(cli::run(shapes{}, {"shapes"sv, "row"sv, "x"sv}), 0); });
     CHECK(err.empty());
     CHECK_EQ(out, "x\n");
   }
@@ -425,22 +423,21 @@ TEST_CASE("reflex::cli: a hybrid command lists both kinds of sub-command")
       testutils::capture_out_err([] { CHECK_EQ(cli::run(shapes{}, {"shapes"sv, "--help"sv}), 0); });
   CHECK(err.empty());
   CHECK_EQ(
-      out,
-      "USAGE: shapes ARGUMENTS... [OPTIONS...]\n"
-      "\n"
-      "Shape tool.\n"
-      "\n"
-      "OPTIONS:\n"
-      "  --help               Print this message and exit.\n"
-      "  --install-completion Install shell completion.\n"
-      "  --show-completion    Show shell completion.\n"
-      "  -w/--width           How wide.\n"
-      "\n"
-      "COMMANDS:\n"
-      "  row              Draw a row of dots.\n"
-      "  report           Report the width.\n"
-      "  nested           A nested struct sub-command.\n"
-      "\n");
+      out, "USAGE: shapes ARGUMENTS... [OPTIONS...]\n"
+           "\n"
+           "Shape tool.\n"
+           "\n"
+           "OPTIONS:\n"
+           "  --help               Print this message and exit.\n"
+           "  --install-completion Install shell completion.\n"
+           "  --show-completion    Show shell completion.\n"
+           "  -w, --width          How wide.\n"
+           "\n"
+           "COMMANDS:\n"
+           "  row              Draw a row of dots.\n"
+           "  report           Report the width.\n"
+           "  nested           A nested struct sub-command.\n"
+           "\n");
 }
 
 TEST_CASE("reflex::cli: a member function sub-command prints its own usage")
@@ -458,19 +455,18 @@ TEST_CASE("reflex::cli: a function command prints its usage")
       testutils::capture_out_err([] { CHECK_EQ(cli::run<^^dots>({"dots"sv, "--help"sv}), 0); });
   CHECK(err.empty());
   CHECK_EQ(
-      out,
-      "USAGE: dots ARGUMENTS... [OPTIONS...]\n"
-      "\n"
-      "Print a line of dots.\n"
-      "\n"
-      "ARGUMENTS:\n"
-      "  count            How many dots.\n"
-      "\n"
-      "OPTIONS:\n"
-      "  --help               Print this message and exit.\n"
-      "  --install-completion Install shell completion.\n"
-      "  --show-completion    Show shell completion.\n"
-      "  -r/--repeat          Repeat the line.\n"
-      "\n"
-      "\n");
+      out, "USAGE: dots ARGUMENTS... [OPTIONS...]\n"
+           "\n"
+           "Print a line of dots.\n"
+           "\n"
+           "ARGUMENTS:\n"
+           "  count            How many dots.\n"
+           "\n"
+           "OPTIONS:\n"
+           "  --help               Print this message and exit.\n"
+           "  --install-completion Install shell completion.\n"
+           "  --show-completion    Show shell completion.\n"
+           "  -r, --repeat         Repeat the line.\n"
+           "\n"
+           "\n");
 }

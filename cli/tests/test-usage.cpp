@@ -19,7 +19,7 @@ struct[[= cli::command{"Every switch spelling a usage line can hold."}]] spellin
   [[= cli::option{"--verbose", "A long spelling on its own."}.flag()]] //
   bool verbose = false;
 
-  [[= cli::option{"-p/--pair", "Both spellings."}.flag()]] //
+  [[= cli::option{"-p,--pair", "Both spellings."}.flag()]] //
   bool pair = false;
 
   int operator()() const
@@ -74,5 +74,5 @@ TEST_CASE("reflex::cli: each switch spelling gets its own usage row")
   CHECK_EQ(rc, 0);
   CHECK(has_row(out, "-b", "A short spelling on its own."));
   CHECK(has_row(out, "--verbose", "A long spelling on its own."));
-  CHECK(has_row(out, "-p/--pair", "Both spellings."));
+  CHECK(has_row(out, "-p, --pair", "Both spellings."));
 }

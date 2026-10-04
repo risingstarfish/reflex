@@ -20,10 +20,10 @@ struct [[= cli::command{"Simple echo command."}]] echo
   [[= cli::argument{"Message to print."}]]
   std::string message;
 
-  [[= cli::option{"-p/--prefix", "Prefix."}]]
+  [[= cli::option{"-p,--prefix", "Prefix."}]]
   std::string prefix;
 
-  [[= cli::option{"-r/--repeat", "Repeat count."}.counter()]]
+  [[= cli::option{"-r,--repeat", "Repeat count."}.counter()]]
   int repeat = 1;
 
   int operator()() const
@@ -72,8 +72,8 @@ rather than the members and pass the function's reflection to `cli::run`.
 [[= cli::command{"Simple echo command."}]]
 int echo(
     [[= cli::argument{"Message to print."}]] std::string message,
-    [[= cli::option{"-p/--prefix", "Prefix."}]] std::string prefix,
-    [[= cli::option{"-r/--repeat", "Repeat count."}]] int repeat)
+    [[= cli::option{"-p,--prefix", "Prefix."}]] std::string prefix,
+    [[= cli::option{"-r,--repeat", "Repeat count."}]] int repeat)
 {
   for(auto _ : std::views::iota(0, std::max(repeat, 1)))
   {
@@ -153,9 +153,9 @@ forms: `"-f/--flag"`.  If only a long option is needed write `"--flag"`.
 | `.counter()` | Maps to `int`/`std::optional<int>`; `-vvv` → `3` |
 
 ```cpp
-[[= cli::option{"-v/--verbose", "Verbosity."}.counter()]] int verbose = 0;
-[[= cli::option{"-q/--quiet",   "Suppress output."}.flag()]] bool quiet = false;
-[[= cli::option{"-o/--output",  "Output file."}]] std::string output;
+[[= cli::option{"-v,--verbose", "Verbosity."}.counter()]] int verbose = 0;
+[[= cli::option{"-q,--quiet",   "Suppress output."}.flag()]] bool quiet = false;
+[[= cli::option{"-o,--output",  "Output file."}]] std::string output;
 ```
 
 ### Sub-commands
@@ -173,7 +173,7 @@ struct [[= cli::command{"Git-like tool."}]] git
 
   struct [[= cli::command{"Push to remote."}]]
   {
-    [[= cli::option{"-r/--remote", "Remote name."}]] std::string remote = "origin";
+    [[= cli::option{"-r,--remote", "Remote name."}]] std::string remote = "origin";
     int operator()() const { … }
   } push;
 };
@@ -186,7 +186,7 @@ the command that declares it, so the parent's options are simply in scope.
 ```cpp
 struct [[= cli::command{"Git-like tool."}]] git
 {
-  [[= cli::option{"-v/--verbose", "Verbose output."}]] int verbose = 0;
+  [[= cli::option{"-v,--verbose", "Verbose output."}]] int verbose = 0;
 
   [[= cli::command{"Commit staged changes."}]]
   int commit([[= cli::argument{"Commit message."}]] std::string message)

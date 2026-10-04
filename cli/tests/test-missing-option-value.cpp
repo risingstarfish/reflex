@@ -22,25 +22,25 @@ enum class[[= derive(Format, Parse)]] mode
 
 struct[[= cli::command{"Every option shape that takes a value."}]] shapes
 {
-  [[= cli::option{"-r/--required", "A value with no default."}]] //
+  [[= cli::option{"-r,--required", "A value with no default."}]] //
   std::string required;
 
-  [[= cli::option{"-o/--optional", "A value that may be absent."}]] //
+  [[= cli::option{"-o,--optional", "A value that may be absent."}]] //
   std::optional<std::string> optional;
 
-  [[= cli::option{"-n/--number", "A value that is parsed."}]] //
+  [[= cli::option{"-n,--number", "A value that is parsed."}]] //
   std::optional<std::int64_t> number;
 
-  [[= cli::option{"-m/--mode", "A value matched against an enum."}]] //
+  [[= cli::option{"-m,--mode", "A value matched against an enum."}]] //
   mode chosen = mode::fast;
 
-  [[= cli::option{"-l/--list", "A value that may repeat."}]] //
+  [[= cli::option{"-l,--list", "A value that may repeat."}]] //
   std::vector<std::string> list;
 
-  [[= cli::option{"-c/--count", "A counter, which takes no value."}.counter()]] //
+  [[= cli::option{"-c,--count", "A counter, which takes no value."}.counter()]] //
   int count = 0;
 
-  [[= cli::option{"-f/--flag", "A flag, which takes no value."}.flag()]] //
+  [[= cli::option{"-f,--flag", "A flag, which takes no value."}.flag()]] //
   bool flag = false;
 
   int operator()() const
@@ -51,7 +51,7 @@ struct[[= cli::command{"Every option shape that takes a value."}]] shapes
 
 struct[[= cli::command{"A sub-command with a value-taking option."}]] child
 {
-  [[= cli::option{"-v/--value", "A value with no default."}]] //
+  [[= cli::option{"-v,--value", "A value with no default."}]] //
   std::string value;
 
   int operator()() const
@@ -62,7 +62,7 @@ struct[[= cli::command{"A sub-command with a value-taking option."}]] child
 
 struct[[= cli::command{"A parent carrying a sub-command."}]] parent
 {
-  [[= cli::option{"-t/--top", "A value on the parent."}]] //
+  [[= cli::option{"-t,--top", "A value on the parent."}]] //
   std::string top;
 
   child sub;

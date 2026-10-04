@@ -88,7 +88,7 @@ struct[[= cli::command{"Simple echo command."}]] dynamic_completion_cli
     };
 
     [[
-      = cli::option{"-c/--compression", "Compression type."},
+      = cli::option{"-c,--compression", "Compression type."},
       = cli::completers::enumeration<compression_type>{}
     ]] compression_type compression = compression_type::none;
 
@@ -192,7 +192,7 @@ auto optional_argument_completer(std::string_view current)
 
 struct[[= cli::command{"Command with an optional argument."}]] optional_argument_cli
 {
-  [[= cli::option{"-l/--list", "List names."}.flag()]] bool list = false;
+  [[= cli::option{"-l,--list", "List names."}.flag()]] bool list = false;
 
   [[= cli::argument{"Name."}, = cli::complete{^^optional_argument_completer}]]
   std::optional<std::string> name;

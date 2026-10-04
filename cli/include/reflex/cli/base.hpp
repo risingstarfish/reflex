@@ -8,7 +8,7 @@
  * struct[[= cli::command{"Print a message."}]] echo
  * {
  *   [[= cli::argument{"What to print."}]] std::string message;
- *   [[= cli::option{"-r/--repeat", "How many times."}]] int repeat = 1;
+ *   [[= cli::option{"-r,--repeat", "How many times."}]] int repeat = 1;
  *
  *   int operator()() const { ...; return 0; }
  * };
@@ -19,7 +19,7 @@
  * @code
  * [[= cli::command{"Print a message."}]]
  * int echo([[= cli::argument{"What to print."}]] std::string message,
- *          [[= cli::option{"-r/--repeat", "How many times."}]] int repeat)
+ *          [[= cli::option{"-r,--repeat", "How many times."}]] int repeat)
  * { ...; return 0; }
  *
  * int main(int argc, const char** argv) { return cli::run<^^echo>(argc, argv); }
@@ -38,7 +38,7 @@
  * @code
  * struct[[= cli::command{"Git-like tool."}]] git
  * {
- *   [[= cli::option{"-v/--verbose", "Verbose output."}]] int verbose = 0;
+ *   [[= cli::option{"-v,--verbose", "Verbose output."}]] int verbose = 0;
  *
  *   [[= cli::command{"Commit staged changes."}]]
  *   int commit([[= cli::argument{"Commit message."}]] std::string message)
