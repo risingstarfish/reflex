@@ -635,7 +635,7 @@ REFLEX_EXPORT namespace reflex::cli
     static constexpr auto description          = command_annotation_for(I);
     static constexpr auto [args, opts, s_cmds] = parse<I, include_install_completion>();
 
-    static constexpr std::size_t min_id_size = 16;
+    static constexpr std::size_t min_id_size = 20;
 
     if(auto pos = program.find_last_of("/\\"); pos != std::string_view::npos)
     {
