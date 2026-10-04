@@ -140,7 +140,7 @@ REFLEX_EXPORT namespace reflex::cli
       return *rc;
     }
 
-    return detail::process(cli, executable, it, end);
+    return detail::process<config>(cli, executable, it, end);
   }
 
   template <typename Cli, configuration config = {}>
