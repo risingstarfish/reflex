@@ -607,6 +607,30 @@ REFLEX_EXPORT namespace reflex::cli
           }
           else if(AT == ^^option)
           {
+            // A switch may only be claimed once: two options spelling the same
+            // switch would make the second one unreachable, and a collision with
+            // a built-in (--help, ...) would shadow it.
+            const auto       opt = option_info{mem};
+            std::string_view dup{};
+            for(auto other : options)
+            {
+              const auto o = option_info{other};
+              if((not opt.switches.s->empty() and *opt.switches.s == *o.switches.s)
+                 or (not opt.switches.l->empty() and *opt.switches.l == *o.switches.l))
+              {
+                dup = not opt.switches.s->empty() and *opt.switches.s == *o.switches.s
+                        ? *opt.switches.s
+                        : *opt.switches.l;
+                break;
+              }
+            }
+            if(not dup.empty())
+            {
+              std::string message{"two options cannot share the flag '"};
+              message += dup;
+              message += "', give one of them a flag of its own";
+              const_assert(false, message, source_location_of(mem));
+            }
             options.push_back(mem);
           }
           else if(AT == ^^command)
