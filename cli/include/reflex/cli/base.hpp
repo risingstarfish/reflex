@@ -343,6 +343,10 @@ REFLEX_EXPORT namespace reflex::cli
 
     consteval std::string_view display_name() const
     {
+      if(not annotation.variable->empty())
+      {
+        return *annotation.variable;
+      }
       return constant_string{caseconv::to_upper_snake_case(identifier_of(member))};
     }
   };
