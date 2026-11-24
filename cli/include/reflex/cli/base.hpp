@@ -143,6 +143,22 @@ REFLEX_EXPORT namespace reflex::cli
     reflex::constant_string help = "";
   };
 
+  struct section
+  {
+    reflex::constant_string title = "";
+  };
+
+  struct env
+  {
+    reflex::constant_string variable = "";
+    reflex::constant_string help     = "";
+  };
+
+  template <typename T> struct env_var
+  {
+    T value;
+  };
+
   struct option
   {
     reflex::constant_string switches = "";
@@ -318,6 +334,17 @@ REFLEX_EXPORT namespace reflex::cli
   {
     consteval command_info(std::meta::info mem) : base_info{mem}
     {}
+  };
+
+  struct env_info : base_info<env_info, env>
+  {
+    consteval env_info(std::meta::info mem) : base_info{mem}
+    {}
+
+    consteval std::string_view display_name() const
+    {
+      return constant_string{caseconv::to_upper_snake_case(identifier_of(member))};
+    }
   };
 
   /** @brief refuse @p subject of command @p command, pointing at @p loc
@@ -519,9 +546,11 @@ REFLEX_EXPORT namespace reflex::cli
     std::vector<std::meta::info> arguments;
     std::vector<std::meta::info> options;
     std::vector<std::meta::info> sub_commands;
+    std::vector<std::meta::info> env_vars;
 
+    // TODO: if constexpr (not I::help)
     options.push_back(^^help_option);
-    if constexpr(include_version)
+    if constexpr(include_version) // TODO: revert to option and text
     {
       options.push_back(^^version_option);
     }
@@ -637,23 +666,28 @@ REFLEX_EXPORT namespace reflex::cli
           {
             sub_commands.push_back(mem);
           }
+          else if(AT == ^^env)
+          {
+            env_vars.push_back(mem);
+          }
         }
       }
     }
     return std::tuple{
         define_static_array(arguments), define_static_array(options),
-        define_static_array(sub_commands)};
+        define_static_array(sub_commands), define_static_array(env_vars)};
   }
 
   template <std::meta::info I, bool include_version = true, bool include_install_completion = true>
   constexpr auto parse()
   {
-    static constexpr auto [arguments, options, sub_commands] =
+    static constexpr auto [arguments, options, sub_commands, env_vars] =
         raw_parse<I, include_version, include_install_completion>();
     static constexpr auto args   = argument_info::from_info_range(arguments);
     static constexpr auto opts   = option_info::from_info_range(options);
     static constexpr auto s_cmds = command_info::from_info_range(sub_commands);
-    return std::tuple{args, opts, s_cmds};
+    static constexpr auto envs   = env_info::from_info_range(env_vars);
+    return std::tuple{args, opts, s_cmds, envs};
   }
 
   consteval std::string_view display_name_of(std::meta::info mem)
@@ -664,10 +698,10 @@ REFLEX_EXPORT namespace reflex::cli
   template <std::meta::info I, bool include_version = true, bool include_install_completion = true>
   void usage_of(std::string_view program)
   {
+    // static constexpr auto custom_help = HAS I::help member
     static constexpr auto description = command_annotation_for(I);
-    static constexpr auto [args, opts, s_cmds] =
+    static constexpr auto [args, opts, s_cmds, envs] =
         parse<I, include_version, include_install_completion>();
-
     static constexpr std::size_t min_id_size = 16;
 
     if(auto pos = program.find_last_of("/\\"); pos != std::string_view::npos)
@@ -750,6 +784,20 @@ REFLEX_EXPORT namespace reflex::cli
       template for(constexpr auto c : s_cmds)
       {
         std::println("  {:{}} {}", c.display_name(), max_id_size, *c.help());
+      }
+    }
+
+    if constexpr(not envs.empty())
+    {
+      std::println("ENVIRONMENT VARIABLES");
+      std::size_t max_id_size = min_id_size;
+      template for(constexpr auto e : envs)
+      {
+        max_id_size = std::max(max_id_size, e.display_name().size());
+      }
+      template for(constexpr auto e : envs)
+      {
+        std::println("  {:{}} {}", e.display_name(), max_id_size, *e.help()); // FIXME caseconv::
       }
     }
 
@@ -933,6 +981,8 @@ REFLEX_EXPORT namespace reflex::cli
         option_info::from_info_range(std::get<1>(_raw)) | std::ranges::to<std::vector>();
     static constexpr constant<std::vector<command_info>> cmds =
         command_info::from_info_range(std::get<2>(_raw)) | std::ranges::to<std::vector>();
+    static constexpr constant<std::vector<env_info>> envs =
+        env_info::from_info_range(std::get<3>(_raw)) | std::ranges::to<std::vector>();
 
     Cmd& root;
 
