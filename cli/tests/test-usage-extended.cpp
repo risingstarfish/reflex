@@ -3,6 +3,7 @@
 #include <reflex/cli.hpp>
 #include <testutils.hpp>
 
+#include <sstream>
 #include <string>
 
 using namespace reflex;
@@ -150,6 +151,20 @@ auto usage_of(auto&& cmd, const char** argv, int argc)
   auto out = capture_out_err([&] { rc = cli::run(cmd, argc, argv); }).first;
   return std::pair{rc, out};
 }
+
+// Where a row's help text starts within its line — the row's help column.
+std::size_t help_col(const std::string& out, std::string_view row, std::string_view help)
+{
+  auto stream = std::istringstream{out};
+  for(std::string line; std::getline(stream, line);)
+  {
+    if(line.starts_with(row) and line.contains(help))
+    {
+      return line.find(help);
+    }
+  }
+  return std::string::npos;
+}
 } // namespace
 
 TEST_CASE("reflex::cli: section markers title the options declared under them")
@@ -209,4 +224,24 @@ TEST_CASE("reflex::cli: a command without markers prints no section titles")
   CHECK_EQ(rc, 0);
 
   CHECK_NE(out.find("OPTIONS:\n  -a, --alpha"), std::string::npos);
+}
+
+TEST_CASE("reflex::cli: every row shares one help column, env vars included")
+{
+  const char* argv[]   = {"dotfiles", "--help"};
+  const auto [rc, out] = usage_of(dotfiles{}, argv, 2);
+  CHECK_EQ(rc, 0);
+
+  // The widest id is -I, --include <module...>: a row whose two switches are
+  // joined with ", " must be measured with that separator, or it overflows
+  // the column and its help sits a space right of its neighbors.
+  const auto first  = help_col(out, "  -i, --install", "Install (or reinstall)");
+  const auto widest = help_col(out, "  -I, --include <module...>", "Install ONLY");
+  const auto maint  = help_col(out, "  --clean-backups [N]", "Clean backups. N:");
+  const auto env    = help_col(out, "  DOTFILES_AUTORESTART", "Set to 1 or true to restart");
+
+  CHECK_NE(first, std::string::npos);
+  CHECK_EQ(first, widest);
+  CHECK_EQ(first, maint);
+  CHECK_EQ(first, env);
 }

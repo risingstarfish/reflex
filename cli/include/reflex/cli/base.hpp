@@ -850,6 +850,27 @@ REFLEX_EXPORT namespace reflex::cli
       std::println();
     }
 
+    std::size_t help_id_size = min_id_size;
+    template for(constexpr auto opt : opts)
+    {
+      constexpr auto sz = [&]() consteval {
+        if(opt.switches.s->empty())
+        {
+          return opt.switches.l->size();
+        }
+        if(opt.switches.l->empty())
+        {
+          return opt.switches.s->size();
+        }
+        return opt.switches.s->size() + opt.switches.l->size() + 2;
+      }();
+      help_id_size = std::max(help_id_size, sz);
+    }
+    template for(constexpr auto e : envs)
+    {
+      help_id_size = std::max(help_id_size, e.display_name().size());
+    }
+
     if constexpr(not args.empty())
     {
       std::println("ARGUMENTS:");
@@ -869,22 +890,6 @@ REFLEX_EXPORT namespace reflex::cli
     {
       std::println("OPTIONS:");
 
-      std::size_t max_id_size = min_id_size;
-      template for(constexpr auto opt : opts)
-      {
-        constexpr auto sz = [&]() consteval {
-          if(opt.switches.s->empty())
-          {
-            return opt.switches.l->size();
-          }
-          if(opt.switches.l->empty())
-          {
-            return opt.switches.s->size();
-          }
-          return opt.switches.s->size() + opt.switches.l->size() + 1;
-        }();
-        max_id_size = std::max(max_id_size, sz);
-      }
       // A section titles once, at its first row, and the implicit first
       // section carries an empty title — so a command without markers prints
       // exactly what it printed before.
@@ -912,7 +917,7 @@ REFLEX_EXPORT namespace reflex::cli
           }
           return std::format("{}, {}", *s, *l);
         }();
-        std::println("  {:{}} {}", switches_str, max_id_size, *opt.help());
+        std::println("  {:{}} {}", switches_str, help_id_size, *opt.help());
       }
 
       std::println();
@@ -935,14 +940,9 @@ REFLEX_EXPORT namespace reflex::cli
     if constexpr(not envs.empty())
     {
       std::println("ENVIRONMENT VARIABLES");
-      std::size_t max_id_size = min_id_size;
       template for(constexpr auto e : envs)
       {
-        max_id_size = std::max(max_id_size, e.display_name().size());
-      }
-      template for(constexpr auto e : envs)
-      {
-        std::println("  {:{}} {}", e.display_name(), max_id_size, *e.help()); // FIXME caseconv::
+        std::println("  {:{}} {}", e.display_name(), help_id_size, *e.help()); // FIXME caseconv::
       }
     }
 
