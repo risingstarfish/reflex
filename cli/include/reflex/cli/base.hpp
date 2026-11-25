@@ -125,8 +125,7 @@ REFLEX_EXPORT namespace reflex::cli
 
   struct configuration
   {
-    completion_config       completion{};
-    reflex::constant_string version = "";
+    completion_config completion{};
   };
 
   template <configuration config = {}>
@@ -323,6 +322,58 @@ REFLEX_EXPORT namespace reflex::cli
       return annotation.is_flag;
     }
   };
+
+  /** @brief whether @p o is to be dispatched as the built-in @p builtin
+   *
+   * Either the built-in itself, or the user-declared option whose long switch
+   * claims it: raw_parse leaves a claimed built-in out of the list, so the
+   * handling follows the switch, not the spelling's owner.
+   */
+  consteval bool
+      plays_role(const option_info& o, std::string_view long_switch, std::meta::info builtin)
+  {
+    return o.member == builtin or *o.switches.l == long_switch;
+  }
+
+  /** @brief the value a command declares as its version, or empty
+   *
+   * A command opts into `--version` by declaring a static member:
+   * `static constexpr std::string_view version = "1.2.3";`. Without one there
+   * is no value to print, so the built-in stays unregistered entirely.
+   */
+  template <std::meta::info I> consteval std::string_view command_version_of()
+  {
+    std::string_view found{};
+    template for(constexpr auto mem :
+                 define_static_array(meta::members_of_r(I, meta::access_context::unchecked())))
+    {
+      if constexpr(
+          is_variable(mem)
+          and is_static_member(mem)
+          and has_identifier(mem)
+          and identifier_of(mem)
+          == "version")
+      {
+        const_assert(
+            is_accessible(mem, meta::access_context::current()),
+            "a version must be readable from outside its command, make it public",
+            source_location_of(mem));
+        // Read through a splice, not extract: a string_view constant is not a
+        // structural type, so there is nothing for extract to pull out.
+        constexpr auto version_type = decay(type_of(mem));
+        if constexpr(is_convertible_type(version_type, ^^std::string_view))
+        {
+          found = std::string_view{[:mem:]};
+        }
+        else
+        {
+          const_assert(
+              false, "a version must be convertible to std::string_view", source_location_of(mem));
+        }
+      }
+    }
+    return found;
+  }
 
   struct argument_info : base_info<argument_info, argument>
   {
@@ -544,25 +595,16 @@ REFLEX_EXPORT namespace reflex::cli
     return command_annotation_of(I);
   }
 
-  template <std::meta::info I, bool include_version = true, bool include_install_completion = true>
-  constexpr auto raw_parse()
+  template <std::meta::info I, bool include_install_completion = true> constexpr auto raw_parse()
   {
     std::vector<std::meta::info> arguments;
     std::vector<std::meta::info> options;
     std::vector<std::meta::info> sub_commands;
     std::vector<std::meta::info> env_vars;
 
-    // TODO: if constexpr (not I::help)
-    options.push_back(^^help_option);
-    if constexpr(include_version) // TODO: revert to option and text
-    {
-      options.push_back(^^version_option);
-    }
-    if constexpr(include_install_completion)
-    {
-      options.push_back(^^install_completion_option);
-      options.push_back(^^show_completion_option);
-    }
+    // Where the built-in --version line belongs: the declaration point of the
+    // static member carrying the version. Unset until such a member shows up.
+    std::size_t version_position = std::string_view::npos;
 
     // Walked with an unchecked context and filtered by hand rather than asking
     // for accessible members only: a sub-command that cannot be reached needs
@@ -609,6 +651,18 @@ REFLEX_EXPORT namespace reflex::cli
       // function but not a function template, and throws on one.
       if constexpr(not is_nonstatic_data_member(mem))
       {
+        // The static version member carries no annotation, so it earns the
+        // built-in --version through discovery alone. Record where it was
+        // declared so the option can take that slot in the help listing.
+        if constexpr(
+            is_variable(mem)
+            and is_static_member(mem)
+            and has_identifier(mem)
+            and identifier_of(mem)
+            == "version")
+        {
+          version_position = options.size();
+        }
         continue;
       }
       if constexpr(not is_accessible(mem, meta::access_context::current()))
@@ -641,8 +695,7 @@ REFLEX_EXPORT namespace reflex::cli
           else if(AT == ^^option)
           {
             // A switch may only be claimed once: two options spelling the same
-            // switch would make the second one unreachable, and a collision with
-            // a built-in (--help, ...) would shadow it.
+            // switch would make the second one unreachable.
             const auto       opt = option_info{mem};
             std::string_view dup{};
             for(auto other : options)
@@ -677,16 +730,49 @@ REFLEX_EXPORT namespace reflex::cli
         }
       }
     }
+
+    std::vector<std::string_view> declared;
+    for(auto mem : options)
+    {
+      const auto sw = option_info{mem}.switches;
+      if(not sw.l->empty())
+      {
+        declared.push_back(*sw.l);
+      }
+    }
+    const auto declared_as = [&](std::string_view sw) {
+      return std::ranges::find(declared, sw) != declared.end();
+    };
+    if(not declared_as("--help"))
+    {
+      options.push_back(^^help_option);
+    }
+    if(not command_version_of<I>().empty() and not declared_as("--version"))
+    {
+      options.insert(
+          options.begin() + static_cast<std::ptrdiff_t>(version_position), ^^version_option);
+    }
+    if constexpr(include_install_completion)
+    {
+      if(not declared_as("--install-completion"))
+      {
+        options.push_back(^^install_completion_option);
+      }
+      if(not declared_as("--show-completion"))
+      {
+        options.push_back(^^show_completion_option);
+      }
+    }
+
     return std::tuple{
         define_static_array(arguments), define_static_array(options),
         define_static_array(sub_commands), define_static_array(env_vars)};
   }
 
-  template <std::meta::info I, bool include_version = true, bool include_install_completion = true>
-  constexpr auto parse()
+  template <std::meta::info I, bool include_install_completion = true> constexpr auto parse()
   {
     static constexpr auto [arguments, options, sub_commands, env_vars] =
-        raw_parse<I, include_version, include_install_completion>();
+        raw_parse<I, include_install_completion>();
     static constexpr auto args   = argument_info::from_info_range(arguments);
     static constexpr auto opts   = option_info::from_info_range(options);
     static constexpr auto s_cmds = command_info::from_info_range(sub_commands);
@@ -699,14 +785,13 @@ REFLEX_EXPORT namespace reflex::cli
     return constant_string{caseconv::to_kebab_case(identifier_of(mem))};
   }
 
-  template <std::meta::info I, bool include_version = true, bool include_install_completion = true>
+  template <std::meta::info I, bool include_install_completion = true>
   void usage_of(std::string_view program)
   {
     // static constexpr auto custom_help = HAS I::help member
-    static constexpr auto description = command_annotation_for(I);
-    static constexpr auto [args, opts, s_cmds, envs] =
-        parse<I, include_version, include_install_completion>();
-    static constexpr std::size_t min_id_size = 16;
+    static constexpr auto description                = command_annotation_for(I);
+    static constexpr auto [args, opts, s_cmds, envs] = parse<I, include_install_completion>();
+    static constexpr std::size_t min_id_size         = 16;
 
     if(auto pos = program.find_last_of("/\\"); pos != std::string_view::npos)
     {
@@ -808,13 +893,13 @@ REFLEX_EXPORT namespace reflex::cli
     std::println();
   }
 
-  template <reflex::constant_string Version> void version_of(std::string_view program)
+  inline void version_of(std::string_view program, std::string_view version)
   {
     if(auto pos = program.find_last_of("/\\"); pos != std::string_view::npos)
     {
       program.remove_prefix(pos + 1);
     }
-    std::println("{} {}", program, Version);
+    std::println("{} {}", program, version);
   }
 
   enum class parsing_state
@@ -968,16 +1053,13 @@ REFLEX_EXPORT namespace reflex::cli
 
   template <
       typename Cmd,
-      reflex::constant_string Version                    = "",
-      bool                    include_install_completion = true,
-      typename Invoker                                   = decltype(default_invoker)>
+      bool include_install_completion = true,
+      typename Invoker                = decltype(default_invoker)>
   struct parse_trackers
   {
-    static constexpr auto include_version = !Version->empty();
-
     static constexpr auto cmd_type = remove_cvref(^^Cmd);
 
-    static constexpr auto _raw = raw_parse<cmd_type, include_version, include_install_completion>();
+    static constexpr auto _raw = raw_parse<cmd_type, include_install_completion>();
 
     static constexpr constant<std::vector<argument_info>> args =
         argument_info::from_info_range(std::get<0>(_raw)) | std::ranges::to<std::vector>();
@@ -1042,7 +1124,7 @@ REFLEX_EXPORT namespace reflex::cli
 
     void usage() const
     {
-      usage_of<cmd_type, include_version, include_install_completion>(command);
+      usage_of<cmd_type, include_install_completion>(command);
     }
   };
 
@@ -1088,9 +1170,8 @@ REFLEX_EXPORT namespace reflex::cli
   };
 
   template <
-      bool                    show_help                  = true,
-      reflex::constant_string Version                    = "",
-      bool                    include_install_completion = true,
+      bool show_help                  = true,
+      bool include_install_completion = true,
       typename Cli,
       typename Invoker = decltype(default_invoker)>
   int process_cmdline(
@@ -1103,9 +1184,8 @@ REFLEX_EXPORT namespace reflex::cli
       std::size_t      index   = 1,
       Invoker          invoker = default_invoker)
   {
-    static constexpr auto include_version = !Version->empty();
-    static constexpr auto cli_type        = remove_cvref(^^Cli);
-    parse_trackers<Cli, Version, include_install_completion, Invoker> trackers{cli, invoker};
+    static constexpr auto                                    cli_type = remove_cvref(^^Cli);
+    parse_trackers<Cli, include_install_completion, Invoker> trackers{cli, invoker};
     trackers.command = command;
     trackers.program = executable.empty() ? command : executable;
     trackers.index   = index;
@@ -1142,23 +1222,22 @@ REFLEX_EXPORT namespace reflex::cli
                     return c == short_switch->at(1);
                   }))))
           {
-            if constexpr(o == ^^help_option)
+            if constexpr(plays_role(o, "--help", ^^help_option))
             {
               if(show_help)
               {
-                usage_of<cli_type, include_version, include_install_completion>(trackers.program);
+                usage_of<cli_type, include_install_completion>(trackers.program);
               }
               return 0;
             }
-            else if constexpr(o == ^^version_option)
+            else if constexpr(
+                plays_role(o, "--version", ^^version_option)
+                and not command_version_of<cli_type>().empty())
             {
-              if(include_version)
-              {
-                version_of<Version>(trackers.program);
-              }
+              version_of(trackers.program, command_version_of<cli_type>());
               return 0;
             }
-            else if constexpr(o == ^^install_completion_option)
+            else if constexpr(plays_role(o, "--install-completion", ^^install_completion_option))
             {
               std::string_view shell{};
               if(it != end and ++it != end)
@@ -1174,7 +1253,7 @@ REFLEX_EXPORT namespace reflex::cli
               }
               return install_completion(trackers.program, shell);
             }
-            else if constexpr(o == ^^show_completion_option)
+            else if constexpr(plays_role(o, "--show-completion", ^^show_completion_option))
             {
               std::string_view shell{};
               if(it != end and ++it != end)
@@ -1333,13 +1412,13 @@ REFLEX_EXPORT namespace reflex::cli
               // The parameters are the sub-command, so they get an aggregate of
               // their own and the parent is carried to the call by the invoker.
               command_args<cmd.member> sub_args{};
-              return process_cmdline<show_help, Version, false>(
+              return process_cmdline<show_help, false>(
                   sub_args, sub_command, trackers.program, it, end, state_handler, trackers.index,
                   member_invoker<cmd.member>(cli));
             }
             else
             {
-              return process_cmdline<show_help, Version, false>(
+              return process_cmdline<show_help, false>(
                   cli.[:cmd.member:], sub_command, trackers.program, it, end, state_handler,
                                     trackers.index);
             }

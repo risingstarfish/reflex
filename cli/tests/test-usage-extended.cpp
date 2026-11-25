@@ -44,7 +44,9 @@ struct[[= cli::command{"Dotfiles installer for Mac, Linux, Windows, and WSL"}]] 
                              "DOTFILES_MAX_BACKUPS dirs)"}]] int         clean_backups  = 0;
 
   static constexpr cli::section section3 = {"\nINFORMATION"};
-  [[= cli::option{"-l,--list", "Display all available modules."}.flag()]] bool list = false;
+  [[= cli::option{"--help", "Print this message and exit."}.flag()]] bool      help    = false;
+  static constexpr std::string_view                                            version = "v0.1.0";
+  [[= cli::option{"-l,--list", "Display all available modules."}.flag()]] bool list    = false;
 
   // install modules
   static constexpr cli::section section4 = {"\nINSTALL MODULES"};
@@ -93,38 +95,28 @@ struct[[= cli::command{"Dotfiles installer for Mac, Linux, Windows, and WSL"}]] 
   //===============================================================================================================
   // environment variables
   //===============================================================================================================
-  static constexpr cli::section env1 = {"Global (Always Active):"};
+  // Names come from the members: dotfiles_log_dir -> DOTFILES_LOG_DIR. The
+  // first env slot overrides the name; empty derives it.
+  [[= cli::env{"", "Path to store log files. (default: ~/.config/dotfiles/logs)"}]] cli::env_var<
+      std::filesystem::path>
+      dotfiles_log_dir = {"~/.config/dotfiles/logs"};
+  [[= cli::env{"", "Path to store temporary cache. (default: ~/.cache/dotfiles)"}]] cli::env_var<
+      std::filesystem::path>
+      dotfiles_cache_dir = {"~/.cache/dotfiles"};
   [[= cli::env{
-      "DOTFILES_LOG_DIR", "Path to store log files. (default: ~/.config/dotfiles.logs)"}]] cli::
-      env_var<std::filesystem::path>
-          env_log_dir = {"~/.config/dotfiles/logs"};
+      "", "Set to 0 or false to disable log file writing. (default: 1)"}]] cli::env_var<bool>
+      dotfiles_log = {true};
   [[= cli::env{
-      "DOTFILES_CACHE_DIR", "Path to store temporary cache. (default: ~/.cache/dotfiles)"}]] cli::
-      env_var<std::filesystem::path>
-          env_cache_dir = {"~/.cache/dotfiles"};
-  [[= cli::env{
-      "DOTFILES_LOG",
-      "Set to 0 or false to disable log file writing. (default: 1)"}]] cli::env_var<bool>
-      env_log = {true};
-  [[= cli::env{
-      "DOTFILES_LOCAL_MODS",
-      "Set to 1 or true to install with uncommitted local changes. (default: 0)"}]] cli::
+      "", "Set to 1 or true to install with uncommitted local changes. (default: 0)"}]] cli::
       env_var<bool>
-          env_local_mods = {false};
+          dotfiles_local_mods = {false};
   [[= cli::env{
-      "DOTFILES_AUTORESTART",
-      "Set to 1 or true to restart shell at script finish. (default: 0)"}]] cli::env_var<bool>
-      env_autorestart = {false};
+      "", "Set to 1 or true to restart shell at script finish. (default: 0)"}]] cli::env_var<bool>
+      dotfiles_autorestart = {false};
   [[= cli::env{
-      "DOTFILES_MAX_BACKUPS",
+      "",
       "Maximum number of backups to keep. Set to 0 to keep all. (default: 10)"}]] cli::env_var<int>
-      env_max_backups = {10};
-
-  static constexpr cli::section env2 = {"Windows Specific:"};
-  [[= cli::env{
-      "DOTFILES_IGNORE_HANDOFF",
-      "Set to 1 or true to ignore the Windows Powershell notice. (default: 0)"}]] cli::env_var<bool>
-      env_ignore_handoff = {false};
+      dotfiles_max_backups = {10};
 
   int operator()() const
   {

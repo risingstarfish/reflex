@@ -54,16 +54,17 @@ int only_options([[= cli::option{"-n,--name", "A name."}]] std::string name)
 TEST_CASE("reflex::cli: a function's parameters describe a command")
 {
   static constexpr auto raw = cli::detail::raw_parse<^^cli::detail::command_args<^^dots>>();
-  // one argument, and the declared option on top of the four built-in ones
+  // one argument, and the declared option on top of the three built-in ones
+  // (no --version: a function command declares no version)
   static_assert(std::get<0>(raw).size() == 1);
-  static_assert(std::get<1>(raw).size() == 5);
+  static_assert(std::get<1>(raw).size() == 4);
   static_assert(std::get<2>(raw).empty());
 
   static constexpr auto arg = cli::detail::argument_info{std::get<0>(raw)[0]};
   static_assert(arg.name() == "count");
   static_assert(*arg.help() == "How many dots.");
 
-  static constexpr auto opt = cli::detail::option_info{std::get<1>(raw)[4]};
+  static constexpr auto opt = cli::detail::option_info{std::get<1>(raw)[0]};
   static_assert(opt.name() == "repeat");
   static_assert(*opt.help() == "Repeat the line.");
   static_assert(*opt.switches.s == "-r");
@@ -89,7 +90,7 @@ TEST_CASE("reflex::cli: a function without parameters describes an empty command
 {
   static constexpr auto raw = cli::detail::raw_parse<^^cli::detail::command_args<^^nothing>>();
   static_assert(std::get<0>(raw).empty());
-  static_assert(std::get<1>(raw).size() == 4);
+  static_assert(std::get<1>(raw).size() == 3);
   static_assert(std::get<2>(raw).empty());
 }
 
@@ -105,7 +106,7 @@ TEST_CASE("reflex::cli: a function may declare options only")
 {
   static constexpr auto raw = cli::detail::raw_parse<^^cli::detail::command_args<^^only_options>>();
   static_assert(std::get<0>(raw).empty());
-  static_assert(std::get<1>(raw).size() == 5);
+  static_assert(std::get<1>(raw).size() == 4);
 }
 
 TEST_CASE("reflex::cli: a synthesized member is a real member")
@@ -428,10 +429,10 @@ TEST_CASE("reflex::cli: a hybrid command lists both kinds of sub-command")
            "Shape tool.\n"
            "\n"
            "OPTIONS:\n"
+           "  -w, --width          How wide.\n"
            "  --help               Print this message and exit.\n"
            "  --install-completion Install shell completion.\n"
            "  --show-completion    Show shell completion.\n"
-           "  -w, --width          How wide.\n"
            "\n"
            "COMMANDS:\n"
            "  row              Draw a row of dots.\n"
@@ -463,10 +464,10 @@ TEST_CASE("reflex::cli: a function command prints its usage")
            "  count            How many dots.\n"
            "\n"
            "OPTIONS:\n"
+           "  -r, --repeat         Repeat the line.\n"
            "  --help               Print this message and exit.\n"
            "  --install-completion Install shell completion.\n"
            "  --show-completion    Show shell completion.\n"
-           "  -r, --repeat         Repeat the line.\n"
            "\n"
            "\n");
 }
