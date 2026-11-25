@@ -681,7 +681,7 @@ REFLEX_EXPORT namespace reflex::cli
             version_position = options.size();
             version_section  = current_section;
           }
-          \ else if constexpr(decay(type_of(mem)) == ^^section)
+          else if constexpr(decay(type_of(mem)) == ^^section)
           {
             constexpr section marker = [:mem:];
             sections.push_back(marker.title);
