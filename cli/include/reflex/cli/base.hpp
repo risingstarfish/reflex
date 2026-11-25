@@ -64,6 +64,15 @@
  * template, and throws on one, so an annotated member function template is
  * simply not seen.
  *
+ * The help listing sections options with marker members: a
+ * `static constexpr cli::section` declared between options titles the options
+ * that follow it, until the next marker. Options before the first marker
+ * print untitled. A built-in the parser appends (`--help`, the completion
+ * pair) joins the last declared section, so a command that cares where they
+ * print declares them itself, at the spot it wants them. A `cli::section`
+ * member that is not `static constexpr` is refused rather than silently
+ * turned into dead storage.
+ *
  * What a function command cannot do:
  *  - **carry a defaulted parameter.** There is nowhere to put the default, and
  *    it would silently become a value-initialized member. Write
@@ -142,6 +151,12 @@ REFLEX_EXPORT namespace reflex::cli
     reflex::constant_string help = "";
   };
 
+  /** @brief a title for the options declared after it
+   *
+   * Declared as a `static constexpr` member between options, a marker titles
+   * every option until the next marker in the help listing. Titles carry no
+   * spacing; the printer owns blank lines.
+   */
   struct section
   {
     reflex::constant_string title = "";
@@ -606,6 +621,14 @@ REFLEX_EXPORT namespace reflex::cli
     // static member carrying the version. Unset until such a member shows up.
     std::size_t version_position = std::string_view::npos;
 
+    std::vector<constant_string> sections{constant_string{std::string_view{}}};
+    std::vector<std::size_t>     option_sections;
+    std::size_t                  current_section = 0;
+
+    // The section the inserted --version takes when it splices in at the
+    // static version member's declaration point.
+    std::size_t version_section = 0;
+
     // Walked with an unchecked context and filtered by hand rather than asking
     // for accessible members only: a sub-command that cannot be reached needs
     // to be refused by name, and a member the walk never returns cannot be.
@@ -651,23 +674,31 @@ REFLEX_EXPORT namespace reflex::cli
       // function but not a function template, and throws on one.
       if constexpr(not is_nonstatic_data_member(mem))
       {
-        // The static version member carries no annotation, so it earns the
-        // built-in --version through discovery alone. Record where it was
-        // declared so the option can take that slot in the help listing.
-        if constexpr(
-            is_variable(mem)
-            and is_static_member(mem)
-            and has_identifier(mem)
-            and identifier_of(mem)
-            == "version")
+        if constexpr(is_variable(mem) and is_static_member(mem))
         {
-          version_position = options.size();
+          if constexpr(has_identifier(mem) and identifier_of(mem) == "version")
+          {
+            version_position = options.size();
+            version_section  = current_section;
+          }
+          \ else if constexpr(decay(type_of(mem)) == ^^section)
+          {
+            constexpr section marker = [:mem:];
+            sections.push_back(marker.title);
+            current_section = sections.size() - 1;
+          }
         }
         continue;
       }
       if constexpr(not is_accessible(mem, meta::access_context::current()))
       {
         continue;
+      }
+      if constexpr(is_nonstatic_data_member(mem) and decay(type_of(mem)) == ^^section)
+      {
+        const_assert(
+            false, "a section marker must be a static constexpr cli::section member",
+            source_location_of(mem));
       }
       auto annotations = annotations_of(mem);
       if(annotations.empty())
@@ -718,6 +749,7 @@ REFLEX_EXPORT namespace reflex::cli
               const_assert(false, message, source_location_of(mem));
             }
             options.push_back(mem);
+            option_sections.push_back(current_section);
           }
           else if(AT == ^^command)
           {
@@ -743,40 +775,45 @@ REFLEX_EXPORT namespace reflex::cli
     const auto declared_as = [&](std::string_view sw) {
       return std::ranges::find(declared, sw) != declared.end();
     };
+    // Appended built-ins join the section the walk ended in — the last one
+    // declared — so an appended --help prints at the end of the listing.
     if(not declared_as("--help"))
     {
       options.push_back(^^help_option);
+      option_sections.push_back(current_section);
     }
     if(not command_version_of<I>().empty() and not declared_as("--version"))
     {
-      options.insert(
-          options.begin() + static_cast<std::ptrdiff_t>(version_position), ^^version_option);
+      const auto pos = static_cast<std::ptrdiff_t>(version_position);
+      options.insert(options.begin() + pos, ^^version_option);
+      option_sections.insert(option_sections.begin() + pos, version_section);
     }
     if constexpr(include_install_completion)
     {
       if(not declared_as("--install-completion"))
       {
         options.push_back(^^install_completion_option);
+        option_sections.push_back(current_section);
       }
       if(not declared_as("--show-completion"))
       {
         options.push_back(^^show_completion_option);
+        option_sections.push_back(current_section);
       }
     }
 
-    return std::tuple{
-        define_static_array(arguments), define_static_array(options),
-        define_static_array(sub_commands), define_static_array(env_vars)};
+    return std::tuple{define_static_array(arguments),    define_static_array(options),
+                      define_static_array(sub_commands), define_static_array(env_vars),
+                      define_static_array(sections),     define_static_array(option_sections)};
   }
 
   template <std::meta::info I, bool include_install_completion = true> constexpr auto parse()
   {
-    static constexpr auto [arguments, options, sub_commands, env_vars] =
-        raw_parse<I, include_install_completion>();
-    static constexpr auto args   = argument_info::from_info_range(arguments);
-    static constexpr auto opts   = option_info::from_info_range(options);
-    static constexpr auto s_cmds = command_info::from_info_range(sub_commands);
-    static constexpr auto envs   = env_info::from_info_range(env_vars);
+    static constexpr auto raw    = raw_parse<I, include_install_completion>();
+    static constexpr auto args   = argument_info::from_info_range(std::get<0>(raw));
+    static constexpr auto opts   = option_info::from_info_range(std::get<1>(raw));
+    static constexpr auto s_cmds = command_info::from_info_range(std::get<2>(raw));
+    static constexpr auto envs   = env_info::from_info_range(std::get<3>(raw));
     return std::tuple{args, opts, s_cmds, envs};
   }
 
@@ -791,7 +828,13 @@ REFLEX_EXPORT namespace reflex::cli
     // static constexpr auto custom_help = HAS I::help member
     static constexpr auto description                = command_annotation_for(I);
     static constexpr auto [args, opts, s_cmds, envs] = parse<I, include_install_completion>();
-    static constexpr std::size_t min_id_size         = 16;
+    // The option rows pair with section ids by position, so that walk goes
+    // over the raw members; parse() hands out views, which cannot index.
+    static constexpr auto        raw             = raw_parse<I, include_install_completion>();
+    static constexpr auto        option_infos    = std::get<1>(raw);
+    static constexpr auto        sections        = std::get<4>(raw);
+    static constexpr auto        option_sections = std::get<5>(raw);
+    static constexpr std::size_t min_id_size     = 16;
 
     if(auto pos = program.find_last_of("/\\"); pos != std::string_view::npos)
     {
@@ -842,8 +885,21 @@ REFLEX_EXPORT namespace reflex::cli
         }();
         max_id_size = std::max(max_id_size, sz);
       }
-      template for(constexpr auto opt : opts)
+      // A section titles once, at its first row, and the implicit first
+      // section carries an empty title — so a command without markers prints
+      // exactly what it printed before.
+      template for(constexpr auto ii : std::views::iota(std::size_t(0), option_infos.size()))
       {
+        constexpr auto opt  = option_info{option_infos[ii]};
+        constexpr auto sidx = option_sections[ii];
+        // option_sections is non-decreasing by construction: it follows the
+        // walk, and every insertion takes the section of its position.
+        constexpr auto prev = ii == 0 ? std::size_t{0} : option_sections[ii - 1];
+        if constexpr(sidx != prev and not sections[sidx]->empty())
+        {
+          std::println("\n{}", *sections[sidx]);
+        }
+
         constexpr auto [s, l] = opt.switches;
         auto switches_str     = [&]() {
           if(s->empty())

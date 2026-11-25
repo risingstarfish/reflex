@@ -14,7 +14,7 @@ using namespace testutils;
 
 namespace fs = std::filesystem;
 
-struct [[= cli::command{"Install completion test."}]] install_completion_cli
+struct[[= cli::command{"Install completion test."}]] install_completion_cli
 {
   int operator()() const
   {
@@ -48,31 +48,33 @@ std::string read_text(fs::path const& path)
 
 TEST_CASE("reflex::cli: install completion for bash")
 {
-  auto const home = temp_home("bash");
+  auto const home     = temp_home("bash");
   auto const home_str = home.string();
   set_env("HOME", home_str.c_str(), true);
   set_env("SHELL", "/bin/bash", true);
 
-  int rc = -1;
+  int         rc     = -1;
   const char* argv[] = {"/tmp/install-cli", "--install-completion"};
-  auto [out, err] = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 2, argv); });
+  auto [out, err]    = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 2, argv); });
 
   CHECK_EQ(rc, 0);
   CHECK(err.empty());
   CHECK(out.find("bash completion installed in") != std::string::npos);
   CHECK(out.find("Completion will take effect once you restart the terminal") != std::string::npos);
 
-  auto const rc_path = home / ".bashrc";
+  auto const rc_path         = home / ".bashrc";
   auto const completion_path = home / ".bash_completions/install-cli.sh";
   CHECK(fs::is_regular_file(rc_path));
   CHECK(fs::is_regular_file(completion_path));
 
-  auto const rc_text = read_text(rc_path);
+  auto const rc_text         = read_text(rc_path);
   auto const expected_source = "source '" + completion_path.string() + "'";
   CHECK(rc_text.find(expected_source) != std::string::npos);
 
   auto const script_text = read_text(completion_path);
-  CHECK(script_text.find("complete -o nosort -F _install_cli_completion \"install-cli\"") != std::string::npos);
+  CHECK(
+      script_text.find("complete -o nosort -F _install_cli_completion \"install-cli\"")
+      != std::string::npos);
 
   unset_env("SHELL");
   unset_env("HOME");
@@ -81,21 +83,21 @@ TEST_CASE("reflex::cli: install completion for bash")
 
 TEST_CASE("reflex::cli: install completion for zsh")
 {
-  auto const home = temp_home("zsh");
+  auto const home     = temp_home("zsh");
   auto const home_str = home.string();
   set_env("HOME", home_str.c_str(), true);
   set_env("SHELL", "zsh", true);
 
-  int rc = -1;
+  int         rc     = -1;
   const char* argv[] = {"/tmp/install-cli", "--install-completion", "zsh"};
-  auto [out, err] = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
+  auto [out, err]    = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
 
   CHECK_EQ(rc, 0);
   CHECK(err.empty());
   CHECK(out.find("zsh completion installed in") != std::string::npos);
   CHECK(out.find("Completion will take effect once you restart the terminal") != std::string::npos);
 
-  auto const rc_path = home / ".zshrc";
+  auto const rc_path         = home / ".zshrc";
   auto const completion_path = home / ".zfunc/_install-cli";
   CHECK(fs::is_regular_file(rc_path));
   CHECK(fs::is_regular_file(completion_path));
@@ -108,7 +110,8 @@ TEST_CASE("reflex::cli: install completion for zsh")
 
   auto const script_text = read_text(completion_path);
   CHECK(script_text.find("compdef _install_cli_completion \"install-cli\"") != std::string::npos);
-  CHECK(script_text.find("zstyle ':completion:*:*:install-cli:*' menu select") != std::string::npos);
+  CHECK(
+      script_text.find("zstyle ':completion:*:*:install-cli:*' menu select") != std::string::npos);
 
   // A second install must leave the rc untouched.
   capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
@@ -122,14 +125,14 @@ TEST_CASE("reflex::cli: install completion for zsh")
 
 TEST_CASE("reflex::cli: install completion for fish")
 {
-  auto const home = temp_home("fish");
+  auto const home     = temp_home("fish");
   auto const home_str = home.string();
   set_env("HOME", home_str.c_str(), true);
   set_env("SHELL", "fish", true);
 
-  int rc = -1;
+  int         rc     = -1;
   const char* argv[] = {"/tmp/install-cli", "--install-completion", "fish"};
-  auto [out, err] = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
+  auto [out, err]    = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
 
   CHECK_EQ(rc, 0);
   CHECK(err.empty());
@@ -149,15 +152,15 @@ TEST_CASE("reflex::cli: install completion for fish")
 
 TEST_CASE("reflex::cli: show completion writes the script rather than installing it")
 {
-  auto const home = temp_home("show");
+  auto const home     = temp_home("show");
   auto const home_str = home.string();
   set_env("HOME", home_str.c_str(), true);
 
   SUBCASE("the shell is named on the command line")
   {
-    int rc = -1;
+    int         rc     = -1;
     const char* argv[] = {"/tmp/install-cli", "--show-completion", "zsh"};
-    auto [out, err] = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
+    auto [out, err]    = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
 
     CHECK_EQ(rc, 0);
     CHECK(err.empty());
@@ -168,13 +171,15 @@ TEST_CASE("reflex::cli: show completion writes the script rather than installing
   {
     set_env("SHELL", "/bin/bash", true);
 
-    int rc = -1;
+    int         rc     = -1;
     const char* argv[] = {"/tmp/install-cli", "--show-completion"};
-    auto [out, err] = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 2, argv); });
+    auto [out, err]    = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 2, argv); });
 
     CHECK_EQ(rc, 0);
     CHECK(err.empty());
-    CHECK(out.find("complete -o nosort -F _install_cli_completion \"install-cli\"") != std::string::npos);
+    CHECK(
+        out.find("complete -o nosort -F _install_cli_completion \"install-cli\"")
+        != std::string::npos);
 
     unset_env("SHELL");
   }
@@ -183,9 +188,9 @@ TEST_CASE("reflex::cli: show completion writes the script rather than installing
   {
     set_env("SHELL", "fish", true);
 
-    int rc = -1;
+    int         rc     = -1;
     const char* argv[] = {"/tmp/install-cli", "--show-completion", "--help"};
-    auto [out, err] = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
+    auto [out, err]    = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
 
     CHECK_EQ(rc, 0);
     CHECK(out.find("complete --no-files --command \"install-cli\"") != std::string::npos);
@@ -195,9 +200,9 @@ TEST_CASE("reflex::cli: show completion writes the script rather than installing
 
   SUBCASE("an unknown shell writes nothing")
   {
-    int rc = -1;
+    int         rc     = -1;
     const char* argv[] = {"/tmp/install-cli", "--show-completion", "csh"};
-    auto [out, err] = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
+    auto [out, err]    = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
 
     CHECK_EQ(rc, 0);
     CHECK(out.empty());
@@ -212,7 +217,7 @@ TEST_CASE("reflex::cli: show completion writes the script rather than installing
 
 TEST_CASE("reflex::cli: installing completion needs a shell it knows")
 {
-  auto const home = temp_home("unknown-shell");
+  auto const home     = temp_home("unknown-shell");
   auto const home_str = home.string();
   set_env("HOME", home_str.c_str(), true);
 
@@ -220,9 +225,9 @@ TEST_CASE("reflex::cli: installing completion needs a shell it knows")
   {
     unset_env("SHELL");
 
-    int rc = -1;
+    int         rc     = -1;
     const char* argv[] = {"/tmp/install-cli", "--install-completion"};
-    auto [out, err] = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 2, argv); });
+    auto [out, err]    = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 2, argv); });
 
     CHECK_NE(rc, 0);
     CHECK(err.find("cannot detect shell for completion installation") != std::string::npos);
@@ -230,9 +235,9 @@ TEST_CASE("reflex::cli: installing completion needs a shell it knows")
 
   SUBCASE("the shell is one it has no script for")
   {
-    int rc = -1;
+    int         rc     = -1;
     const char* argv[] = {"/tmp/install-cli", "--install-completion", "csh"};
-    auto [out, err] = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
+    auto [out, err]    = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 3, argv); });
 
     CHECK_NE(rc, 0);
     CHECK(err.find("shell csh is not supported for completion installation") != std::string::npos);
@@ -246,14 +251,14 @@ TEST_CASE("reflex::cli: installing completion needs a shell it knows")
 
 TEST_CASE("reflex::cli: a program reached through PATH is completed by its bare name")
 {
-  auto const home = temp_home("bare-name");
+  auto const home     = temp_home("bare-name");
   auto const home_str = home.string();
   set_env("HOME", home_str.c_str(), true);
   set_env("SHELL", "/bin/bash", true);
 
-  int rc = -1;
+  int         rc     = -1;
   const char* argv[] = {"install-cli", "--install-completion"};
-  auto [out, err] = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 2, argv); });
+  auto [out, err]    = capture_out_err([&] { rc = cli::run(install_completion_cli{}, 2, argv); });
 
   CHECK_EQ(rc, 0);
   CHECK(err.empty());
@@ -269,7 +274,7 @@ TEST_CASE("reflex::cli: a program reached through PATH is completed by its bare 
 
 TEST_CASE("reflex::cli: an rc file that does not end in a newline gets one")
 {
-  auto const home = temp_home("no-newline");
+  auto const home     = temp_home("no-newline");
   auto const home_str = home.string();
   set_env("HOME", home_str.c_str(), true);
   set_env("SHELL", "/bin/bash", true);
@@ -279,7 +284,7 @@ TEST_CASE("reflex::cli: an rc file that does not end in a newline gets one")
     out << "export EXISTING=1";
   }
 
-  int rc = -1;
+  int         rc     = -1;
   const char* argv[] = {"/tmp/install-cli", "--install-completion"};
   capture_out_err([&] { rc = cli::run(install_completion_cli{}, 2, argv); });
   CHECK_EQ(rc, 0);
@@ -295,13 +300,13 @@ TEST_CASE("reflex::cli: an rc file that does not end in a newline gets one")
 
 TEST_CASE("reflex::cli: with no home directory the completion lands in the current one")
 {
-  auto const home = temp_home("no-home");
+  auto const home     = temp_home("no-home");
   auto const previous = fs::current_path();
   fs::current_path(home);
   unset_env("HOME");
   set_env("SHELL", "/bin/bash", true);
 
-  int rc = -1;
+  int         rc     = -1;
   const char* argv[] = {"/tmp/install-cli", "--install-completion"};
   capture_out_err([&] { rc = cli::run(install_completion_cli{}, 2, argv); });
   CHECK_EQ(rc, 0);

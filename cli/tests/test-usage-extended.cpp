@@ -12,12 +12,10 @@ namespace
 {
 struct[[= cli::command{"Dotfiles installer for Mac, Linux, Windows, and WSL"}]] dotfiles
 {
-  static constexpr cli::section header1 = {"ALL ACTIONS:"};
-
-  static constexpr cli::section section1 = {"\nINSTALL"};
   // TODO: change to argument
+  static constexpr cli::section section1 = {"INSTALL"};
   [[= cli::option{"-i,--install", "Install (or reinstall) available dotfiles."}
-          .flag()]] bool install                                                            = false;
+          .flag()]] bool        install  = false;
   [[= cli::option{"-u,--update", "Update from Git before installing."}.flag()]] bool update = false;
   [[= cli::option{
       "-r,--remove <module>",
@@ -35,7 +33,7 @@ struct[[= cli::command{"Dotfiles installer for Mac, Linux, Windows, and WSL"}]] 
 
   // options
   // maintenance
-  static constexpr cli::section section2 = {"\nMAINTENANCE"};
+  static constexpr cli::section section2 = {"MAINTENANCE"};
   [[= cli::option{"--clean [N]", "Clean backups and reset both log files."}]] int clean = 0;
   [[= cli::option{"--clean-logs", "Clean both log files."}.flag()]] bool clean_logs     = false;
   [[= cli::option{
@@ -43,13 +41,13 @@ struct[[= cli::command{"Dotfiles installer for Mac, Linux, Windows, and WSL"}]] 
                              "when omitted: keep the latest "
                              "DOTFILES_MAX_BACKUPS dirs)"}]] int         clean_backups  = 0;
 
-  static constexpr cli::section section3 = {"\nINFORMATION"};
+  static constexpr cli::section section3 = {"INFORMATION"};
   [[= cli::option{"--help", "Print this message and exit."}.flag()]] bool      help    = false;
   static constexpr std::string_view                                            version = "v0.1.0";
   [[= cli::option{"-l,--list", "Display all available modules."}.flag()]] bool list    = false;
 
   // install modules
-  static constexpr cli::section section4 = {"\nINSTALL MODULES"};
+  static constexpr cli::section section4 = {"INSTALL MODULES"};
   [[= cli::option{
       "-I,--include <module...>",
       "Install ONLY the specified modules <module>, semicolon-separated."}]] std::string include =
@@ -60,7 +58,7 @@ struct[[= cli::command{"Dotfiles installer for Mac, Linux, Windows, and WSL"}]] 
       "";
 
   // behaviour
-  static constexpr cli::section section5    = {"\nBEHAVIOUR"};
+  static constexpr cli::section section5    = {"BEHAVIOUR"};
   [[= cli::option{"-n,--dry-run", "Print planned actions without modifying the disk."}
           .flag()]] bool        dry_run     = false;
   [[= cli::option{"-K,--autorestart", "Automatically restart shell at script end."}
@@ -79,7 +77,7 @@ struct[[= cli::command{"Dotfiles installer for Mac, Linux, Windows, and WSL"}]] 
       false;
 
   // logging
-  static constexpr cli::section section6 = {"\nLOGGING"};
+  static constexpr cli::section section6 = {"LOGGING"};
   [[= cli::option{"-d,--debug", "Print debug output (useful for diagnosing)."}.flag()]] bool debug =
       false;
   [[= cli::option{"-q,--quiet", "Suppress all standard output except errors."}.flag()]] bool quiet =
@@ -124,4 +122,91 @@ struct[[= cli::command{"Dotfiles installer for Mac, Linux, Windows, and WSL"}]] 
   }
 };
 
+struct[[= cli::command{"A command that declares none of the built-ins itself."}]] bare
+{
+  static constexpr cli::section                                  retired = {"RETIRED"};
+  static constexpr cli::section                                  flags   = {"FLAGS"};
+  [[= cli::option{"-f,--flag", "A declared flag."}.flag()]] bool flag    = false;
+
+  int operator()() const
+  {
+    return 0;
+  }
+};
+
+struct[[= cli::command{"No markers, so no titles."}]] flat
+{
+  [[= cli::option{"-a,--alpha", "First."}.flag()]] bool alpha = false;
+
+  int operator()() const
+  {
+    return 0;
+  }
+};
+
+auto usage_of(auto&& cmd, const char** argv, int argc)
+{
+  int  rc  = -1;
+  auto out = capture_out_err([&] { rc = cli::run(cmd, argc, argv); }).first;
+  return std::pair{rc, out};
+}
 } // namespace
+
+TEST_CASE("reflex::cli: section markers title the options declared under them")
+{
+  const char* argv[]   = {"dotfiles", "--help"};
+  const auto [rc, out] = usage_of(dotfiles{}, argv, 2);
+  CHECK_EQ(rc, 0);
+
+  const auto options = out.find("OPTIONS:");
+  const auto install = out.find("\nINSTALL\n");
+  const auto maint   = out.find("\nMAINTENANCE\n");
+  const auto info    = out.find("\nINFORMATION\n");
+  const auto modules = out.find("\nINSTALL MODULES\n");
+  const auto behav   = out.find("\nBEHAVIOUR\n");
+  const auto logging = out.find("\nLOGGING\n");
+
+  CHECK_NE(options, std::string::npos);
+  CHECK(options < install);
+  CHECK(install < maint);
+  CHECK(maint < info);
+  CHECK(info < modules);
+  CHECK(modules < behav);
+  CHECK(behav < logging);
+
+  CHECK_LT(install, out.find("Install (or reinstall) available dotfiles."));
+  CHECK_LT(out.find("Deletes symlinks, logs, and backups"), maint);
+  CHECK_LT(maint, out.find("Clean both log files."));
+
+  CHECK_LT(info, out.find("Print this message and exit."));
+  CHECK_LT(out.find("Print this message and exit."), out.find("Print the version and exit."));
+  CHECK_LT(out.find("Print the version and exit."), out.find("Display all available modules."));
+  CHECK_LT(out.find("Display all available modules."), modules);
+
+  // environment variables keep their own untitled block after the options
+  CHECK_NE(out.find("ENVIRONMENT VARIABLES"), std::string::npos);
+  CHECK_LT(logging, out.find("ENVIRONMENT VARIABLES"));
+  CHECK_NE(out.find("DOTFILES_LOG_DIR"), std::string::npos);
+}
+
+TEST_CASE("reflex::cli: appended built-ins join the last section")
+{
+  const char* argv[]   = {"bare", "--help"};
+  const auto [rc, out] = usage_of(bare{}, argv, 2);
+  CHECK_EQ(rc, 0);
+
+  CHECK_EQ(out.find("FLAGS"), out.rfind("FLAGS"));
+  CHECK_LT(out.find("\nFLAGS\n"), out.find("-f, --flag"));
+  CHECK_LT(out.find("-f, --flag"), out.find("--help"));
+
+  CHECK_EQ(out.find("RETIRED"), std::string::npos);
+}
+
+TEST_CASE("reflex::cli: a command without markers prints no section titles")
+{
+  const char* argv[]   = {"flat", "--help"};
+  const auto [rc, out] = usage_of(flat{}, argv, 2);
+  CHECK_EQ(rc, 0);
+
+  CHECK_NE(out.find("OPTIONS:\n  -a, --alpha"), std::string::npos);
+}
