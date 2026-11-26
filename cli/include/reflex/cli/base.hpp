@@ -841,7 +841,21 @@ REFLEX_EXPORT namespace reflex::cli
       program.remove_prefix(pos + 1);
     }
 
-    std::println("USAGE: {} ARGUMENTS... [OPTIONS...]", program);
+    std::string usage_msg = std::format("USAGE: {} ", program);
+    if constexpr(not args.empty())
+    {
+      usage_msg += "<ARGUMENTS...> ";
+    }
+    if constexpr(not s_cmds.empty())
+    {
+      usage_msg += "<COMMAND> ";
+    }
+    if constexpr(not opts.empty())
+    {
+      usage_msg += "[OPTIONS...]";
+    }
+
+    std::println("{}", usage_msg);
 
     if constexpr(constexpr auto help = description.help; not help->empty())
     {
@@ -851,6 +865,10 @@ REFLEX_EXPORT namespace reflex::cli
     }
 
     std::size_t help_id_size = min_id_size;
+    template for(constexpr auto a : args)
+    {
+      help_id_size = std::max(help_id_size, a.display_name().size());
+    }
     template for(constexpr auto opt : opts)
     {
       constexpr auto sz = [&]() consteval {
@@ -870,20 +888,29 @@ REFLEX_EXPORT namespace reflex::cli
     {
       help_id_size = std::max(help_id_size, e.display_name().size());
     }
+    template for(constexpr auto c : s_cmds)
+    {
+      help_id_size = std::max(help_id_size, c.display_name().size());
+    }
 
     if constexpr(not args.empty())
     {
       std::println("ARGUMENTS:");
-      std::size_t max_id_size = min_id_size;
       template for(constexpr auto a : args)
       {
-        max_id_size = std::max(max_id_size, a.display_name().size());
-      }
-      template for(constexpr auto a : args)
-      {
-        std::println("  {:{}} {}", a.display_name(), max_id_size, *a.help());
+        std::println("  {:{}} {}", a.display_name(), help_id_size, *a.help());
       }
 
+      std::println();
+    }
+
+    if constexpr(not s_cmds.empty())
+    {
+      std::println("COMMANDS:");
+      template for(constexpr auto c : s_cmds)
+      {
+        std::println("  {:{}} {}", c.display_name(), help_id_size, *c.help());
+      }
       std::println();
     }
 
@@ -921,20 +948,6 @@ REFLEX_EXPORT namespace reflex::cli
       }
 
       std::println();
-    }
-
-    if constexpr(not s_cmds.empty())
-    {
-      std::println("COMMANDS:");
-      std::size_t max_id_size = min_id_size;
-      template for(constexpr auto c : s_cmds)
-      {
-        max_id_size = std::max(max_id_size, c.display_name().size());
-      }
-      template for(constexpr auto c : s_cmds)
-      {
-        std::println("  {:{}} {}", c.display_name(), max_id_size, *c.help());
-      }
     }
 
     if constexpr(not envs.empty())
