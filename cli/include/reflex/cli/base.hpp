@@ -893,6 +893,8 @@ REFLEX_EXPORT namespace reflex::cli
       help_id_size = std::max(help_id_size, c.display_name().size());
     }
 
+    help_id_size += 4;
+
     if constexpr(not args.empty())
     {
       std::println("ARGUMENTS:");
