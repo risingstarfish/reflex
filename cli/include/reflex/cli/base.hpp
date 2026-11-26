@@ -132,9 +132,14 @@ REFLEX_EXPORT namespace reflex::cli
     std::meta::info completion_vector = ^^std::vector<completion_item<std::string, std::string>>;
   };
 
+  /** @brief the width a usage message keeps to when the command asks for none
+   */
+  inline constexpr std::size_t default_max_width = 80;
+
   struct configuration
   {
     completion_config completion{};
+    std::size_t       max_width = default_max_width;
   };
 
   template <configuration config = {}>
@@ -822,10 +827,49 @@ REFLEX_EXPORT namespace reflex::cli
     return constant_string{caseconv::to_kebab_case(identifier_of(mem))};
   }
 
-  template <std::meta::info I, bool include_install_completion = true>
+  /** @brief fold @p text into lines no wider than @p width columns
+   *
+   * Lines are joined with @p break_to, which carries the indent that lands a
+   * continuation under the text above it. A word too long for the width is
+   * written whole rather than cut: a help sentence is folded, never truncated.
+   * A width of zero asks for no folding at all.
+   */
+  inline std::string wrapped(std::string_view text, std::size_t width, std::string_view break_to)
+  {
+    std::string out;
+    std::size_t used = 0;
+
+    for(auto at = text.find_first_not_of(' '); at != std::string_view::npos;)
+    {
+      auto end  = text.find(' ', at);
+      auto stop = end == std::string_view::npos ? text.size() : end;
+      auto size = stop - at;
+
+      if(used != 0 and width != 0 and used + 1 + size > width)
+      {
+        out += break_to;
+        used = 0;
+      }
+      if(used != 0)
+      {
+        out += ' ';
+        ++used;
+      }
+      out += text.substr(at, size);
+      used += size;
+
+      at = text.find_first_not_of(' ', stop);
+    }
+
+    return out;
+  }
+
+  template <
+      std::meta::info I,
+      bool            include_install_completion = true,
+      std::size_t     max_width                  = default_max_width>
   void usage_of(std::string_view program)
   {
-    // static constexpr auto custom_help = HAS I::help member
     static constexpr auto description                = command_annotation_for(I);
     static constexpr auto [args, opts, s_cmds, envs] = parse<I, include_install_completion>();
     // The option rows pair with section ids by position, so that walk goes
@@ -860,7 +904,7 @@ REFLEX_EXPORT namespace reflex::cli
     if constexpr(constexpr auto help = description.help; not help->empty())
     {
       std::println();
-      std::println("{}", *help);
+      std::println("{}", wrapped(*help, max_width, "\n"));
       std::println();
     }
 
@@ -893,14 +937,25 @@ REFLEX_EXPORT namespace reflex::cli
       help_id_size = std::max(help_id_size, c.display_name().size());
     }
 
+    // minimum of 5
     help_id_size += 4;
+
+    // A row is the indent, the id padded to help_id_size, and a space, so its
+    // help begins three columns along. It folds into the rest of the terminal —
+    // a name column wider than the terminal leaves the help unfolded rather
+    // than one word per line.
+    const std::size_t help_indent = 3 + help_id_size;
+    const std::size_t help_width  = max_width > help_indent ? max_width - help_indent : 0;
+    const std::string help_break  = "\n" + std::string(help_indent, ' ');
 
     if constexpr(not args.empty())
     {
       std::println("ARGUMENTS:");
       template for(constexpr auto a : args)
       {
-        std::println("  {:{}} {}", a.display_name(), help_id_size, *a.help());
+        std::println(
+            "  {:{}} {}", a.display_name(), help_id_size,
+            wrapped(*a.help(), help_width, help_break));
       }
 
       std::println();
@@ -911,7 +966,9 @@ REFLEX_EXPORT namespace reflex::cli
       std::println("COMMANDS:");
       template for(constexpr auto c : s_cmds)
       {
-        std::println("  {:{}} {}", c.display_name(), help_id_size, *c.help());
+        std::println(
+            "  {:{}} {}", c.display_name(), help_id_size,
+            wrapped(*c.help(), help_width, help_break));
       }
       std::println();
     }
@@ -946,7 +1003,8 @@ REFLEX_EXPORT namespace reflex::cli
           }
           return std::format("{}, {}", *s, *l);
         }();
-        std::println("  {:{}} {}", switches_str, help_id_size, *opt.help());
+        std::println(
+            "  {:{}} {}", switches_str, help_id_size, wrapped(*opt.help(), help_width, help_break));
       }
 
       std::println();
@@ -957,7 +1015,9 @@ REFLEX_EXPORT namespace reflex::cli
       std::println("ENVIRONMENT VARIABLES");
       template for(constexpr auto e : envs)
       {
-        std::println("  {:{}} {}", e.display_name(), help_id_size, *e.help()); // FIXME caseconv::
+        std::println(
+            "  {:{}} {}", e.display_name(), help_id_size,
+            wrapped(*e.help(), help_width, help_break)); // FIXME caseconv::
       }
     }
 
@@ -1124,8 +1184,9 @@ REFLEX_EXPORT namespace reflex::cli
 
   template <
       typename Cmd,
-      bool include_install_completion = true,
-      typename Invoker                = decltype(default_invoker)>
+      bool        include_install_completion = true,
+      std::size_t max_width                  = default_max_width,
+      typename Invoker                       = decltype(default_invoker)>
   struct parse_trackers
   {
     static constexpr auto cmd_type = remove_cvref(^^Cmd);
@@ -1195,7 +1256,7 @@ REFLEX_EXPORT namespace reflex::cli
 
     void usage() const
     {
-      usage_of<cmd_type, include_install_completion>(command);
+      usage_of<cmd_type, include_install_completion, max_width>(command);
     }
   };
 
@@ -1241,8 +1302,9 @@ REFLEX_EXPORT namespace reflex::cli
   };
 
   template <
-      bool show_help                  = true,
-      bool include_install_completion = true,
+      bool        show_help                  = true,
+      bool        include_install_completion = true,
+      std::size_t max_width                  = default_max_width,
       typename Cli,
       typename Invoker = decltype(default_invoker)>
   int process_cmdline(
@@ -1255,8 +1317,8 @@ REFLEX_EXPORT namespace reflex::cli
       std::size_t      index   = 1,
       Invoker          invoker = default_invoker)
   {
-    static constexpr auto                                    cli_type = remove_cvref(^^Cli);
-    parse_trackers<Cli, include_install_completion, Invoker> trackers{cli, invoker};
+    static constexpr auto cli_type = remove_cvref(^^Cli);
+    parse_trackers<Cli, include_install_completion, max_width, Invoker> trackers{cli, invoker};
     trackers.command = command;
     trackers.program = executable.empty() ? command : executable;
     trackers.index   = index;
@@ -1297,7 +1359,7 @@ REFLEX_EXPORT namespace reflex::cli
             {
               if(show_help)
               {
-                usage_of<cli_type, include_install_completion>(trackers.program);
+                usage_of<cli_type, include_install_completion, max_width>(trackers.program);
               }
               return 0;
             }
@@ -1483,13 +1545,13 @@ REFLEX_EXPORT namespace reflex::cli
               // The parameters are the sub-command, so they get an aggregate of
               // their own and the parent is carried to the call by the invoker.
               command_args<cmd.member> sub_args{};
-              return process_cmdline<show_help, false>(
+              return process_cmdline<show_help, false, max_width>(
                   sub_args, sub_command, trackers.program, it, end, state_handler, trackers.index,
                   member_invoker<cmd.member>(cli));
             }
             else
             {
-              return process_cmdline<show_help, false>(
+              return process_cmdline<show_help, false, max_width>(
                   cli.[:cmd.member:], sub_command, trackers.program, it, end, state_handler,
                                     trackers.index);
             }

@@ -129,7 +129,7 @@ REFLEX_EXPORT namespace reflex::cli::detail
               .description = static_cast<completion_description_type>(help)});
     };
 
-    cli::detail::process_cmdline<false>(
+    cli::detail::process_cmdline<false, true, config.max_width>(
         cli, identifier_of(decay(^^Cli)), identifier_of(decay(^^Cli)), words.begin(), words.end(),
         [&](auto const& trackers) {
           const auto  state      = trackers.state;
@@ -415,10 +415,10 @@ REFLEX_EXPORT namespace reflex::cli::completers
       return std::make_tuple(
           true, std::array{
                     cli::completion<config>{
-                                            .type        = type,
-                                            .value       = static_cast<cli::completion<config>::value_type>(value),
-                                            .description = static_cast<cli::completion<config>::description_type>(
-                            description)}
+                                            .type  = type,
+                                            .value = static_cast<cli::completion<config>::value_type>(value),
+                                            .description =
+                            static_cast<cli::completion<config>::description_type>(description)}
       });
     }
 
